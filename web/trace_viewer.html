@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Min Agent Trace Viewer</title>
+    <link rel="stylesheet" href="./trace_viewer.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="status">
+        <div>
+          <p class="eyebrow">Min Agent Trace Viewer</p>
+          <h1>等待任务开始</h1>
+        </div>
+        <span id="run-status" class="badge">waiting</span>
+      </header>
+
+      <section class="layout" aria-label="Agent execution trace">
+        <ol id="timeline" class="timeline">
+          <li class="empty">Trace events will appear here.</li>
+        </ol>
+
+        <aside class="detail">
+          <h2>当前步骤</h2>
+          <pre id="step-detail">No event selected.</pre>
+        </aside>
+      </section>
+
+      <section class="result">
+        <h2>最终结果</h2>
+        <p id="final-answer">任务完成后展示最终回答。</p>
+      </section>
+    </main>
+
+    <script src="./trace_viewer.js"></script>
+  </body>
+</html>
+
