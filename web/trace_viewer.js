@@ -1,16 +1,50 @@
 const state = {
   status: "waiting",
   events: [],
-  selectedEvent: null,
+  selectedStep: null,
 };
 
-function applyEvent(event) {
-  state.events.push(event);
-  state.selectedEvent = event;
-  if (event.status) {
-    state.status = event.status;
+function connectTraceStream() {
+  if (!("EventSource" in window)) {
+    setStatus("unsupported");
+    return;
   }
+
+  const stream = new EventSource("/events");
+  stream.onmessage = (message) => {
+    const event = JSON.parse(message.data);
+    applyEvent(event);
+  };
+  stream.onerror = () => {
+    if (!isTerminalStatus(state.status)) {
+      setStatus("reconnecting");
+    }
+  };
+}
+
+function applyEvent(event) {
+  const existingIndex = state.events.findIndex((item) => item.step === event.step);
+  if (existingIndex >= 0) {
+    state.events[existingIndex] = event;
+  } else {
+    state.events.push(event);
+  }
+  state.selectedStep = event.step;
+  state.status = event.status || state.status;
   render();
+}
+
+function setStatus(status) {
+  state.status = status;
+  renderStatus();
+}
+
+function isTerminalStatus(status) {
+  return ["completed", "failed", "interrupted"].includes(status);
+}
+
+function selectedEvent() {
+  return state.events.find((event) => event.step === state.selectedStep) || null;
 }
 
 function render() {
@@ -21,10 +55,9 @@ function render() {
 }
 
 function renderStatus() {
-  const status = document.querySelector("#run-status");
-  const heading = document.querySelector("h1");
-  status.textContent = state.status;
-  heading.textContent = state.selectedEvent?.title || "等待任务开始";
+  document.querySelector("#run-status").textContent = state.status;
+  const latest = state.events[state.events.length - 1];
+  document.querySelector("#current-title").textContent = latest?.title || "等待任务开始";
 }
 
 function renderTimeline() {
@@ -34,51 +67,48 @@ function renderTimeline() {
   if (state.events.length === 0) {
     const empty = document.createElement("li");
     empty.className = "empty";
-    empty.textContent = "Trace events will appear here.";
+    empty.textContent = "等待 Trace 事件...";
     timeline.append(empty);
     return;
   }
 
   for (const event of state.events) {
     const item = document.createElement("li");
-    item.textContent = `${event.step ?? "-"} · ${event.title ?? event.phase ?? "event"}`;
-    item.addEventListener("click", () => {
-      state.selectedEvent = event;
-      renderDetail();
+    if (event.step === state.selectedStep) {
+      item.className = "active";
+    }
+
+    const button = document.createElement("button");
+    button.type = "button";
+
+    const title = document.createElement("span");
+    title.textContent = `${event.step}. ${event.title}`;
+
+    const meta = document.createElement("small");
+    meta.textContent = `${event.phase} · ${event.status}`;
+
+    button.append(title, meta);
+    button.addEventListener("click", () => {
+      state.selectedStep = event.step;
+      render();
     });
+
+    item.append(button);
     timeline.append(item);
   }
 }
 
 function renderDetail() {
+  const event = selectedEvent();
   const detail = document.querySelector("#step-detail");
-  detail.textContent = state.selectedEvent
-    ? JSON.stringify(state.selectedEvent, null, 2)
-    : "No event selected.";
+  detail.textContent = event ? JSON.stringify(event, null, 2) : "暂无事件。";
 }
 
 function renderFinalAnswer() {
-  const finalAnswer = document.querySelector("#final-answer");
   const finalEvent = state.events.find((event) => event.phase === "final_answer");
-  finalAnswer.textContent = finalEvent?.output?.message || "任务完成后展示最终回答。";
-}
-
-function connectTraceStream() {
-  if (!("EventSource" in window)) {
-    console.warn("EventSource is not available in this browser.");
-    return;
-  }
-
-  const stream = new EventSource("/events");
-  stream.onmessage = (message) => {
-    applyEvent(JSON.parse(message.data));
-  };
-  stream.onerror = () => {
-    state.status = "reconnecting";
-    renderStatus();
-  };
+  document.querySelector("#final-answer").textContent =
+    finalEvent?.output?.message || "任务完成后展示最终回答。";
 }
 
 render();
 connectTraceStream();
-

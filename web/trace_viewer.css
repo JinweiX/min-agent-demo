@@ -78,6 +78,27 @@ h2 {
   margin-bottom: 16px;
 }
 
+.timeline button {
+  width: 100%;
+  border: 1px solid #d8dee8;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.timeline .active button {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.timeline small {
+  display: block;
+  margin-top: 4px;
+  color: #667085;
+}
+
 .empty {
   color: #667085;
 }
@@ -115,4 +136,3 @@ pre {
     border-top: 1px solid #d8dee8;
   }
 }
-

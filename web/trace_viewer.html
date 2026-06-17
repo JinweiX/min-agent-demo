@@ -11,19 +11,19 @@
       <header class="status">
         <div>
           <p class="eyebrow">Min Agent Trace Viewer</p>
-          <h1>等待任务开始</h1>
+          <h1 id="current-title">等待任务开始</h1>
         </div>
         <span id="run-status" class="badge">waiting</span>
       </header>
 
       <section class="layout" aria-label="Agent execution trace">
         <ol id="timeline" class="timeline">
-          <li class="empty">Trace events will appear here.</li>
+          <li class="empty">等待 Trace 事件...</li>
         </ol>
 
         <aside class="detail">
           <h2>当前步骤</h2>
-          <pre id="step-detail">No event selected.</pre>
+          <pre id="step-detail">暂无事件。</pre>
         </aside>
       </section>
 
@@ -36,4 +36,3 @@
     <script src="./trace_viewer.js"></script>
   </body>
 </html>
-

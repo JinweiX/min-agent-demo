@@ -14,10 +14,20 @@ class ProjectStructureTest(unittest.TestCase):
     def test_required_files_exist(self) -> None:
         required_paths = [
             "AGENTS.md",
+            ".gitignore",
             "README.md",
             "pyproject.toml",
             "src/min_agent/__init__.py",
+            "src/min_agent/agent_loop.py",
             "src/min_agent/cli.py",
+            "src/min_agent/context_builder.py",
+            "src/min_agent/fake_llm.py",
+            "src/min_agent/tool_registry.py",
+            "src/min_agent/trace_recorder.py",
+            "src/min_agent/trace_server.py",
+            "src/min_agent/types.py",
+            "src/min_agent/tools/__init__.py",
+            "src/min_agent/tools/workspace.py",
             "examples/workspace/notes.md",
             "web/trace_viewer.html",
             "web/trace_viewer.css",
@@ -38,14 +48,28 @@ class ProjectStructureTest(unittest.TestCase):
         self.assertIn("ToolRegistry", rules)
         self.assertIn("不能写死固定 7 步流程", rules)
 
-    def test_cli_placeholder_runs_with_example_workspace(self) -> None:
+    def test_cli_runs_with_example_workspace_without_viewer(self) -> None:
+        import tempfile
+
         from min_agent.cli import main
 
-        result = main(["请读取 notes.md 并总结", "--workspace", "examples/workspace"])
+        with tempfile.TemporaryDirectory() as tmp:
+            result = main(
+                [
+                    "请读取 notes.md 并总结",
+                    "--workspace",
+                    "examples/workspace",
+                    "--runs-dir",
+                    tmp,
+                    "--no-viewer",
+                    "--no-browser",
+                    "--step-delay",
+                    "0",
+                ]
+            )
 
         self.assertEqual(result, 0)
 
 
 if __name__ == "__main__":
     unittest.main()
-

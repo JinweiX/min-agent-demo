@@ -2,47 +2,47 @@
 
 一个可观察的最小 Agent 机制 demo。
 
-第一版目标不是做一个可用于生产的 Agent，而是用最小场景看清楚 Agent 的核心闭环：
+第一版目标不是做生产工具，也不是接入真实大模型，而是验证 Agent 的最小闭环：
 
 ```text
 目标输入 -> 判断下一步 -> 调用工具 -> 获得结果 -> 更新判断 -> 输出答案
 ```
 
-## 第一版目标
+## 第一版能力
 
-用户输入一个简单任务：
+- CLI 启动入口
+- 示例 workspace
+- FakeLLM 决策器
+- Agent Loop 骨架
+- Tool Registry
+- workspace 内安全读取文件
+- Trace Recorder
+- Trace Server
+- 只读 Trace Viewer
+- JSON 运行记录保存
+- 最小单元测试
 
-```text
-请读取示例工作区里的 notes.md，并总结内容
-```
+第一版不接真实模型 SDK，不读取 API key，不创建 `.env`，不提供写 workspace 文件的工具，不运行命令。
 
-系统应该逐步展示：
-
-1. 收到任务
-2. 整理上下文
-3. 判断需要读取文件
-4. 调用文件读取工具
-5. 获得文件内容
-6. 基于文件内容生成总结
-7. 完成任务
-
-这些步骤不能被写死成流程动画。后续实现必须由 Agent Loop、FakeLLM、Tool Registry、Observation 和 Trace 事件共同推进。
-
-## 当前状态
-
-当前仓库处于初始化阶段，只包含项目规则、目录骨架和最小占位入口。
-
-完整实现顺序见：
-
-- `最小 Agent Demo 技术方案规划.md`
-- `AGENTS.md`
-
-## 运行占位 CLI
-
-当前 CLI 只是项目初始化占位，用于确认包结构可运行：
+## 运行 demo
 
 ```bash
 PYTHONPATH=src python3 -m min_agent.cli "请读取 notes.md 并总结" --workspace examples/workspace
+```
+
+默认会启动本地 Trace Viewer，并尝试打开浏览器。CLI 会输出类似：
+
+```text
+Trace viewer: http://127.0.0.1:8765/
+Run record: runs/20260618-001000-abcd1234.json
+```
+
+## 非浏览器模式
+
+适合测试、脚本或只想看 CLI 输出：
+
+```bash
+PYTHONPATH=src python3 -m min_agent.cli "请读取 notes.md 并总结" --workspace examples/workspace --no-viewer --no-browser --step-delay 0
 ```
 
 ## 运行测试
@@ -51,11 +51,20 @@ PYTHONPATH=src python3 -m min_agent.cli "请读取 notes.md 并总结" --workspa
 python3 -m unittest discover -s tests
 ```
 
-## 关键原则
+## 机制说明
 
-- 第一版用 FakeLLM，不接真实模型。
-- FakeLLM 必须按上下文和 observation 决策。
-- Agent Loop 不能写死 `notes.md` 或固定 7 步。
-- 工具必须通过 Tool Registry 调用。
-- Trace Viewer 只展示事件，不控制 Agent。
-- 文件工具只能访问 workspace 内文件。
+`FakeLLM` 是确定性的假决策器，但它不是固定步骤脚本。它根据当前 `AgentContext` 和已有 `Observation` 判断下一步：没有文件内容时调用 `read_file`，读取成功后输出总结，读取失败后输出失败结果。
+
+`AgentLoop` 不直接调用具体工具，只通过 `ToolRegistry` 调用工具。工具结果只能通过 `Observation` 回到上下文。
+
+`TraceEvent` 同时用于浏览器实时观察和本地 JSON 记录。Trace Viewer 只展示事件，不控制 Agent。
+
+## 运行记录
+
+运行记录保存在：
+
+```text
+runs/*.json
+```
+
+仓库保留 `runs/.gitkeep`，生成的 JSON 记录默认被 `.gitignore` 忽略。
