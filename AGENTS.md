@@ -40,6 +40,36 @@
 - MCP、Hook、插件系统
 - 复杂前端工作台
 
+## 第二版边界
+
+第二版在第一版基础上只增加：
+
+- DeepSeek 真实模型决策器
+- CLI 在 `fake` 和 `deepseek` 决策器之间切换
+- DeepSeek JSON Output 到本地 `AgentAction`
+
+第二版仍然不做：
+
+- 写 workspace 文件
+- 运行命令
+- 页面控制 Agent
+- 多工具
+- 多 Agent
+- 长期记忆
+- MCP、Hook、插件系统
+
+## 第二版模型安全规则
+
+- `DEEPSEEK_API_KEY` 只能从环境变量读取。
+- 不创建 `.env`。
+- 不把 API key 写入代码、日志、TraceEvent 或 run record。
+- 默认 `fake` 模式不得读取或校验 `DEEPSEEK_API_KEY`。
+- 只有 `--decision-model deepseek` 时才校验 `DEEPSEEK_API_KEY`。
+- DeepSeek 模型只能返回本地 `AgentAction` JSON。
+- DeepSeek 模型不能直接执行工具。
+- 工具执行仍必须通过 `ToolRegistry`。
+- 模型请求失败、超时、HTTP 非 2xx、空 content、非法 JSON、非法 action 都必须收敛为可观察的失败结果，不能让 CLI 崩溃。
+
 ## 架构红线
 
 这些规则用于防止第一版退化成写死的流程演示。
@@ -68,6 +98,9 @@ min-agent-demo/
       cli.py
       agent_loop.py
       context_builder.py
+      decision_model.py
+      deepseek_client.py
+      deepseek_llm.py
       fake_llm.py
       tool_registry.py
       trace_recorder.py
@@ -136,6 +169,19 @@ runs/YYYYMMDD-HHMMSS-<run-id>.json
 - output
 
 实时推送和本地保存应尽量复用同一套事件结构。
+
+## 版本记录约定
+
+项目版本变化记录在根目录 `CHANGELOG.md`。
+
+版本记录面向使用者和产品评审者阅读，优先说明：
+
+- 这一版解决什么问题
+- 使用者能感受到什么变化
+- 这一版不会做什么
+- 怎么判断这一版完成
+
+不要把版本记录写成代码提交清单。技术实现细节只保留必要摘要，详细开发计划放在 `docs/superpowers/plans/`。
 
 ## 前端约定
 

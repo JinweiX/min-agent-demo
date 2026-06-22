@@ -24,6 +24,26 @@
 
 第一版不接真实模型 SDK，不读取 API key，不创建 `.env`，不提供写 workspace 文件的工具，不运行命令。
 
+## V2: DeepSeek 决策器
+
+V2 可以把默认的 `FakeLLM` 替换为 DeepSeek 真实模型决策器，但工具执行仍由本地 `ToolRegistry` 控制。
+
+DeepSeek 模式使用环境变量：
+
+```bash
+export DEEPSEEK_API_KEY=...
+```
+
+运行：
+
+```bash
+DEEPSEEK_API_KEY=... PYTHONPATH=src python3 -m min_agent.cli \
+  "请读取 notes.md 并总结" \
+  --workspace examples/workspace \
+  --decision-model deepseek \
+  --deepseek-model deepseek-v4-flash
+```
+
 ## 运行 demo
 
 ```bash

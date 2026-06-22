@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 
 from min_agent.context_builder import ContextBuilder
+from min_agent.decision_model import DecisionModel
 from min_agent.tool_registry import ToolRegistry
 from min_agent.trace_recorder import TraceRecorder
 from min_agent.types import AgentRunResult, Observation
@@ -12,7 +13,7 @@ class AgentLoop:
     def __init__(
         self,
         context_builder: ContextBuilder,
-        llm: object,
+        llm: DecisionModel,
         tools: ToolRegistry,
         recorder: TraceRecorder,
         workspace: str,

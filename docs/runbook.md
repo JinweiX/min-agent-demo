@@ -119,6 +119,51 @@ Trace viewer: http://127.0.0.1:<port>/
 
 这样不会启动本地 Trace Server，也不会打开浏览器。
 
+### DeepSeek key 缺失
+
+当使用 `--decision-model deepseek` 时，必须设置 `DEEPSEEK_API_KEY`。
+
+缺失时 CLI 返回 `2`。
+
+### DeepSeek 请求失败
+
+模型请求失败属于 Agent 任务失败。程序不应崩溃，应保存 run record，最终回答中说明模型调用失败。
+
+### DeepSeek JSON Output 返回空内容
+
+DeepSeek JSON Output 偶尔可能返回空 content。V2 会把它记录为模型调用失败，不会继续解析空字符串。
+
+处理：
+
+- 保留 run record 供复盘。
+- 稍后重试。
+- 或回退到默认 fake 模式确认本地 AgentLoop、ToolRegistry 和 workspace 文件读取仍正常。
+
+### DeepSeek 返回非法 JSON
+
+如果模型返回的内容不是合法 AgentAction JSON，Agent 会输出失败结果：
+
+```text
+模型返回了无法解析的决策 JSON。
+```
+
+这属于 Agent 任务失败，CLI 返回 `0`，run record 的 `status` 是 `failed`。
+
+### API key 安全边界
+
+- `DEEPSEEK_API_KEY` 只能从环境变量读取。
+- 不创建 `.env`。
+- 不把 API key 写入代码、TraceEvent 或 run record。
+- 默认 fake 模式不读取也不校验 `DEEPSEEK_API_KEY`。
+
+### 回退到 FakeLLM
+
+如果 DeepSeek API 不可用，使用默认 fake 模式：
+
+```bash
+PYTHONPATH=src python3 -m min_agent.cli "请读取 notes.md 并总结" --workspace examples/workspace
+```
+
 ## 运行记录
 
 运行记录保存在：

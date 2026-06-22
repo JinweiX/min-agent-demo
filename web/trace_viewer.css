@@ -52,6 +52,23 @@ h2 {
   font-size: 18px;
 }
 
+h3,
+h4 {
+  margin: 0;
+}
+
+h3 {
+  font-size: 15px;
+}
+
+h4 {
+  margin-top: 12px;
+  color: #526071;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
 .badge {
   border: 1px solid #a7b0bd;
   border-radius: 999px;
@@ -79,6 +96,10 @@ h2 {
 }
 
 .timeline button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   width: 100%;
   border: 1px solid #d8dee8;
   border-radius: 6px;
@@ -88,15 +109,38 @@ h2 {
   cursor: pointer;
 }
 
+.timeline-content {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
 .timeline .active button {
   border-color: #2563eb;
   background: #eff6ff;
 }
 
 .timeline small {
-  display: block;
-  margin-top: 4px;
   color: #667085;
+}
+
+.agent-module-badge {
+  flex: 0 0 auto;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.timeline .active .agent-module-badge {
+  border-color: #93c5fd;
+  background: #dbeafe;
+  color: #1d4ed8;
 }
 
 .empty {
@@ -108,7 +152,48 @@ h2 {
   padding: 24px;
 }
 
+.step-detail {
+  display: grid;
+  gap: 14px;
+}
+
+.detail-heading {
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.detail-meta {
+  margin: 6px 0 0;
+  color: #667085;
+  font-size: 13px;
+}
+
+.detail-section {
+  display: grid;
+  gap: 8px;
+}
+
+.model-call-badge,
+.model-call-empty {
+  margin: 0;
+  border: 1px solid #d8dee8;
+  border-radius: 999px;
+  padding: 6px 10px;
+  width: fit-content;
+  background: #f9fafb;
+  color: #364152;
+  font-size: 13px;
+}
+
+.model-call-badge {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
 pre {
+  max-height: 320px;
+  overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
   background: #f9fafb;
@@ -134,5 +219,10 @@ pre {
   .detail {
     border-left: 0;
     border-top: 1px solid #d8dee8;
+  }
+
+  .timeline button {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

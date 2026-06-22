@@ -64,14 +64,27 @@ class AgentAction:
     tool_name: str | None = None
     args: dict[str, Any] = field(default_factory=dict)
     message: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def tool_call(cls, tool_name: str, args: dict[str, Any], reason: str) -> AgentAction:
-        return cls(kind="tool_call", tool_name=tool_name, args=args, reason=reason)
+    def tool_call(
+        cls,
+        tool_name: str,
+        args: dict[str, Any],
+        reason: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> AgentAction:
+        return cls(kind="tool_call", tool_name=tool_name, args=args, reason=reason, metadata=metadata or {})
 
     @classmethod
-    def final_answer(cls, message: str, reason: str, success: bool = True) -> AgentAction:
-        return cls(kind="final_answer", message=message, reason=reason, success=success)
+    def final_answer(
+        cls,
+        message: str,
+        reason: str,
+        success: bool = True,
+        metadata: dict[str, Any] | None = None,
+    ) -> AgentAction:
+        return cls(kind="final_answer", message=message, reason=reason, success=success, metadata=metadata or {})
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

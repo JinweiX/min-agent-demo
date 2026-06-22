@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import time
 import webbrowser
 from pathlib import Path
@@ -8,6 +9,9 @@ from typing import Sequence
 
 from min_agent.agent_loop import AgentLoop
 from min_agent.context_builder import ContextBuilder
+from min_agent.decision_model import DecisionModel
+from min_agent.deepseek_client import DeepSeekClient
+from min_agent.deepseek_llm import DeepSeekLLM
 from min_agent.fake_llm import FakeLLM
 from min_agent.tool_registry import ToolRegistry
 from min_agent.tools.workspace import ensure_workspace, read_file
@@ -34,7 +38,40 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-viewer", action="store_true", help="Run without starting the trace server.")
     parser.add_argument("--keep-open-seconds", type=float, default=5, help="Keep viewer server alive after completion.")
     parser.add_argument("--step-delay", type=float, default=0.4, help="Delay between visible steps.")
+    parser.add_argument(
+        "--decision-model",
+        choices=["fake", "deepseek"],
+        default="fake",
+        help="Decision model backend.",
+    )
+    parser.add_argument("--deepseek-model", default="deepseek-v4-flash", help="DeepSeek model name.")
+    parser.add_argument(
+        "--deepseek-base-url",
+        default="https://api.deepseek.com",
+        help="DeepSeek OpenAI-compatible base URL.",
+    )
+    parser.add_argument("--model-max-tokens", type=int, default=1200, help="Maximum model output tokens.")
     return parser
+
+
+def build_decision_model(args: argparse.Namespace) -> tuple[DecisionModel | None, str | None]:
+    if args.decision_model == "fake":
+        return FakeLLM(), None
+
+    if args.decision_model == "deepseek":
+        api_key = os.environ.get("DEEPSEEK_API_KEY")
+        if not api_key:
+            return None, "DEEPSEEK_API_KEY is required when --decision-model deepseek"
+
+        client = DeepSeekClient(
+            api_key=api_key,
+            model=args.deepseek_model,
+            base_url=args.deepseek_base_url,
+            max_tokens=args.model_max_tokens,
+        )
+        return DeepSeekLLM(client=client, model=args.deepseek_model), None
+
+    return None, f"Unknown decision model: {args.decision_model}"
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -45,6 +82,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         workspace = ensure_workspace(args.workspace)
     except (FileNotFoundError, NotADirectoryError) as exc:
         print(f"Error: {exc}")
+        return 2
+
+    llm, model_error = build_decision_model(args)
+    if model_error is not None:
+        print(f"Error: {model_error}")
         return 2
 
     recorder = TraceRecorder(user_goal=args.goal, workspace=str(workspace))
@@ -84,7 +126,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         loop = AgentLoop(
             context_builder=ContextBuilder(),
-            llm=FakeLLM(),
+            llm=llm,
             tools=registry,
             recorder=recorder,
             workspace=str(workspace),

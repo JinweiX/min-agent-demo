@@ -17,11 +17,13 @@ class CoreTypesTest(unittest.TestCase):
             tool_name="read_file",
             args={"path": "notes.md"},
             reason="需要读取文件内容后才能总结",
+            metadata={"model_call": {"provider": "deepseek"}},
         )
 
         self.assertEqual(action.kind, "tool_call")
         self.assertEqual(action.to_dict()["tool_name"], "read_file")
         self.assertEqual(action.to_dict()["args"], {"path": "notes.md"})
+        self.assertEqual(action.to_dict()["metadata"]["model_call"]["provider"], "deepseek")
 
     def test_observation_wraps_tool_result(self) -> None:
         from min_agent.types import Observation, ToolResult

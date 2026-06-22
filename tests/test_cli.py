@@ -98,6 +98,56 @@ class CliTest(unittest.TestCase):
 
         self.assertEqual(exit_code, 2)
 
+    def test_cli_default_fake_mode_does_not_require_deepseek_key(self) -> None:
+        from min_agent.cli import main
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            workspace = root / "workspace"
+            runs = root / "runs"
+            workspace.mkdir()
+            (workspace / "notes.md").write_text("# 示例", encoding="utf-8")
+
+            with patch.dict("os.environ", {}, clear=True):
+                exit_code = main(
+                    [
+                        "请读取 notes.md 并总结",
+                        "--workspace",
+                        str(workspace),
+                        "--runs-dir",
+                        str(runs),
+                        "--no-viewer",
+                        "--no-browser",
+                        "--step-delay",
+                        "0",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+
+    def test_cli_deepseek_mode_requires_key(self) -> None:
+        from min_agent.cli import main
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "workspace"
+            workspace.mkdir()
+            (workspace / "notes.md").write_text("# 示例", encoding="utf-8")
+
+            with patch.dict("os.environ", {}, clear=True):
+                exit_code = main(
+                    [
+                        "请读取 notes.md 并总结",
+                        "--workspace",
+                        str(workspace),
+                        "--decision-model",
+                        "deepseek",
+                        "--no-viewer",
+                        "--no-browser",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 2)
+
 
 if __name__ == "__main__":
     unittest.main()
