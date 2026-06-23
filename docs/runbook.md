@@ -224,3 +224,30 @@ list_dir -> read_file -> read_file -> final_answer
 - 指向 workspace 外文件的 symlink
 - 目录路径
 - 非 UTF-8 文件
+
+## V4 Trace Viewer 验证
+
+1. 运行测试：
+
+   ```bash
+   python3 -m unittest discover -s tests
+   ```
+
+2. 运行 fake 模式 demo：
+
+   ```bash
+   PYTHONPATH=src python3 -m min_agent.cli \
+     "请总结这个 demo 的使用方式" \
+     --workspace examples/workspace \
+     --port 8765
+   ```
+
+3. 在浏览器中确认：
+
+   - 顶部统计能看到执行轮次、模型决策、`list_dir` 调用、`read_file` 调用和观察结果。
+   - 原始需求在最终结果上方。
+   - 最终结果在观察窗口上方。
+   - 左侧是 Agentic Loop 轮次，不是二十多个平铺事件。
+   - 点击任意轮次，右侧展示该轮内部的有序步骤。
+   - 每个步骤能看到输入、输出和原始事件 JSON。
+   - 模型决策步骤能看到 FakeLLM 说明或 DeepSeek 请求/响应详情。

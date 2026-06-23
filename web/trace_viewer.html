@@ -16,20 +16,38 @@
         <span id="run-status" class="badge">waiting</span>
       </header>
 
-      <section class="layout" aria-label="Agent execution trace">
-        <ol id="timeline" class="timeline">
-          <li class="empty">等待 Trace 事件...</li>
-        </ol>
-
-        <aside class="detail">
-          <h2>当前步骤</h2>
-          <div id="step-detail" class="step-detail">暂无事件。</div>
-        </aside>
+      <section class="summary-panel" aria-label="Run summary">
+        <div id="run-summary" class="run-summary-grid"></div>
       </section>
 
-      <section class="result">
+      <section class="context-panel original-request">
+        <h2>原始需求</h2>
+        <p id="original-request">等待任务开始。</p>
+      </section>
+
+      <section class="context-panel result">
         <h2>最终结果</h2>
         <p id="final-answer">任务完成后展示最终回答。</p>
+      </section>
+
+      <section class="layout" aria-label="Agentic loop trace">
+        <nav class="rounds-panel" aria-label="执行轮次">
+          <div class="panel-heading">
+            <h2>执行轮次</h2>
+            <p>按 Agentic Loop 分组</p>
+          </div>
+          <ol id="round-list" class="round-list">
+            <li class="empty">等待 Trace 事件...</li>
+          </ol>
+        </nav>
+
+        <aside class="detail">
+          <div class="panel-heading">
+            <h2>轮次详情</h2>
+            <p>查看本轮每一步的输入、输出和原始事件</p>
+          </div>
+          <div id="round-detail" class="round-detail">暂无事件。</div>
+        </aside>
       </section>
     </main>
 

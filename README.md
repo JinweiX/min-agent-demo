@@ -58,6 +58,12 @@ PYTHONPATH=src python3 -m min_agent.cli \
 
 这一版仍然只读 workspace 文件，不写文件，不运行命令。
 
+## V4: 轮次化 Trace Viewer
+
+V4 改进了浏览器观察窗口的可理解性。页面顶部会展示本次任务的执行统计、用户输入的原始需求和最终结果；下方观察窗口按 Agentic Loop 轮次组织执行过程，每一轮内部继续保留具体步骤、输入、输出和原始事件 JSON。
+
+DeepSeek 模式下，模型决策步骤会展示发送给模型的 System Prompt、User Prompt、模型返回的 `message.content`，以及解析后的本地 `AgentAction`。FakeLLM 模式下，页面会明确说明没有调用真实大模型。
+
 ## 运行 demo
 
 ```bash
