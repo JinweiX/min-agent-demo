@@ -156,5 +156,54 @@ class AgentLoopTest(unittest.TestCase):
         self.assertEqual(calls, [{}])
 
 
+    def test_loop_can_discover_and_read_multiple_workspace_files(self) -> None:
+        from min_agent.agent_loop import AgentLoop
+        from min_agent.context_builder import ContextBuilder
+        from min_agent.fake_llm import FakeLLM
+        from min_agent.tool_registry import ToolRegistry
+        from min_agent.tools.workspace import list_dir, read_file
+        from min_agent.trace_recorder import TraceRecorder
+        from min_agent.types import ToolSpec
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            (workspace / "project.md").write_text("# 项目\nAgent demo", encoding="utf-8")
+            (workspace / "architecture.md").write_text("# 架构\nAgentLoop", encoding="utf-8")
+
+            registry = ToolRegistry()
+            registry.register(
+                ToolSpec(name="read_file", description="Read file", args_schema={"path": "string"}),
+                lambda args: read_file(workspace, args),
+            )
+            registry.register(
+                ToolSpec(name="list_dir", description="List directory", args_schema={"path": "string"}),
+                lambda args: list_dir(workspace, args),
+            )
+            recorder = TraceRecorder(user_goal="请总结这个工作区", workspace=str(workspace))
+            loop = AgentLoop(
+                context_builder=ContextBuilder(),
+                llm=FakeLLM(),
+                tools=registry,
+                recorder=recorder,
+                workspace=str(workspace),
+                step_delay_seconds=0,
+            )
+
+            result = loop.run("请总结这个工作区")
+
+        self.assertTrue(result.success)
+        self.assertIn("project.md", result.message)
+        self.assertIn("architecture.md", result.message)
+        phases = [event.phase for event in recorder.history()]
+        self.assertIn("tool_started", phases)
+        tool_names = [
+            event.input.get("tool_name")
+            for event in recorder.history()
+            if event.phase == "tool_started"
+        ]
+        self.assertIn("list_dir", tool_names)
+        self.assertIn("read_file", tool_names)
+
+
 if __name__ == "__main__":
     unittest.main()

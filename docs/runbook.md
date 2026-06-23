@@ -184,6 +184,35 @@ runs/*.json
 
 `events` 中的事件结构与 Trace Viewer 通过 SSE 收到的事件结构一致。
 
+## V3 多文件上下文演示
+
+运行：
+
+```bash
+PYTHONPATH=src python3 -m min_agent.cli \
+  "请阅读这个工作区里的资料，并总结这个 demo 是怎么工作的" \
+  --workspace examples/workspace
+```
+
+预期观察路径：
+
+```text
+list_dir -> read_file -> read_file -> final_answer
+```
+
+如果目录中没有 Markdown 文件，Agent 应输出可理解的失败说明，而不是崩溃。
+
+### list_dir 工具
+
+`list_dir` 只列出 workspace 内单层目录，不递归。
+
+会被拒绝的情况包括：
+
+- `../` 父目录逃逸
+- workspace 外绝对路径
+- 文件路径（只接受目录）
+- 指向 workspace 外的 symlink（对应条目会被跳过，不暴露）
+
 ## Workspace 安全边界
 
 文件工具只能读取指定 workspace 内的文件。

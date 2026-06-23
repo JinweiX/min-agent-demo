@@ -150,6 +150,20 @@ class DeepSeekLLMTest(unittest.TestCase):
         self.assertIn("AgentAction", system_prompt)
         self.assertIn("available_tools", user_prompt)
 
+    def test_system_prompt_allows_list_dir_tool(self) -> None:
+        from min_agent.deepseek_llm import DeepSeekLLM
+
+        llm = DeepSeekLLM(
+            client=StubClient('{"kind":"final_answer","message":"ok","reason":"done","success":true}'),
+            model="deepseek-v4-flash",
+        )
+
+        system_prompt = llm._system_prompt()
+
+        self.assertIn('"tool_name": "list_dir"', system_prompt)
+        self.assertIn('"args": {"path": "."}', system_prompt)
+        self.assertIn('"tool_name": "read_file"', system_prompt)
+
     def test_action_metadata_contains_model_call_request_and_raw_content(self) -> None:
         from min_agent.deepseek_llm import DeepSeekLLM
         from min_agent.types import AgentContext, ToolSpec

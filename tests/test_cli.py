@@ -13,6 +13,18 @@ sys.path.insert(0, str(ROOT / "src"))
 
 
 class CliTest(unittest.TestCase):
+    def test_cli_registers_list_dir_tool(self) -> None:
+        from min_agent.cli import build_tool_registry
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "workspace"
+            workspace.mkdir()
+
+            registry = build_tool_registry(workspace)
+
+        tool_names = {tool.name for tool in registry.list_specs()}
+        self.assertEqual(tool_names, {"read_file", "list_dir"})
+
     def test_cli_runs_without_viewer_and_saves_record(self) -> None:
         from min_agent.cli import main
 

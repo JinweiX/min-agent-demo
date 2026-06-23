@@ -118,8 +118,18 @@ class DeepSeekLLM:
 Return only one valid json object matching the local AgentAction schema.
 Do not use markdown fences.
 Do not invent tools.
+Only choose tools listed in the user prompt.
+Use list_dir when you need to inspect available workspace files.
+Use read_file when you need file content before answering.
 
 Allowed json outputs:
+{
+  "kind": "tool_call",
+  "tool_name": "list_dir",
+  "args": {"path": "."},
+  "reason": "Need to inspect available workspace files"
+}
+
 {
   "kind": "tool_call",
   "tool_name": "read_file",

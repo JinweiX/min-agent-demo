@@ -44,6 +44,20 @@ DEEPSEEK_API_KEY=... PYTHONPATH=src python3 -m min_agent.cli \
   --deepseek-model deepseek-v4-flash
 ```
 
+## V3: 多文件上下文读取
+
+V3 可以让 Agent 先查看 workspace 目录，再选择相关 Markdown 文件读取并综合回答。
+
+运行：
+
+```bash
+PYTHONPATH=src python3 -m min_agent.cli \
+  "请阅读这个工作区里的资料，并总结这个 demo 是怎么工作的" \
+  --workspace examples/workspace
+```
+
+这一版仍然只读 workspace 文件，不写文件，不运行命令。
+
 ## 运行 demo
 
 ```bash
@@ -73,7 +87,7 @@ python3 -m unittest discover -s tests
 
 ## 机制说明
 
-`FakeLLM` 是确定性的假决策器，但它不是固定步骤脚本。它根据当前 `AgentContext` 和已有 `Observation` 判断下一步：没有文件内容时调用 `read_file`，读取成功后输出总结，读取失败后输出失败结果。
+`FakeLLM` 是确定性的假决策器，但它不是固定步骤脚本。它根据当前 `AgentContext` 和已有 `Observation` 判断下一步：用户明确指定 Markdown 文件时直接调用 `read_file`；未指定文件时先调用 `list_dir` 查看 workspace，再读取最多 3 个 Markdown 文件并综合回答。读取或列目录失败时输出可理解的失败结果。
 
 `AgentLoop` 不直接调用具体工具，只通过 `ToolRegistry` 调用工具。工具结果只能通过 `Observation` 回到上下文。
 

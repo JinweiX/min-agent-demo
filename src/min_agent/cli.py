@@ -14,7 +14,7 @@ from min_agent.deepseek_client import DeepSeekClient
 from min_agent.deepseek_llm import DeepSeekLLM
 from min_agent.fake_llm import FakeLLM
 from min_agent.tool_registry import ToolRegistry
-from min_agent.tools.workspace import ensure_workspace, read_file
+from min_agent.tools.workspace import ensure_workspace, list_dir, read_file
 from min_agent.trace_recorder import TraceRecorder
 from min_agent.trace_server import TraceServer
 from min_agent.types import ToolSpec
@@ -74,6 +74,29 @@ def build_decision_model(args: argparse.Namespace) -> tuple[DecisionModel | None
     return None, f"Unknown decision model: {args.decision_model}"
 
 
+def build_tool_registry(workspace: Path) -> ToolRegistry:
+    registry = ToolRegistry()
+    registry.register(
+        ToolSpec(
+            name="read_file",
+            description="Read a UTF-8 text file inside the configured workspace.",
+            args_schema={"path": "string"},
+            requires_permission=False,
+        ),
+        lambda tool_args: read_file(workspace, tool_args),
+    )
+    registry.register(
+        ToolSpec(
+            name="list_dir",
+            description="List files and directories inside the configured workspace.",
+            args_schema={"path": "string"},
+            requires_permission=False,
+        ),
+        lambda tool_args: list_dir(workspace, tool_args),
+    )
+    return registry
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -114,15 +137,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             print("Trace viewer disabled.")
 
-        registry = ToolRegistry()
-        registry.register(
-            ToolSpec(
-                name="read_file",
-                description="Read a UTF-8 text file inside the configured workspace.",
-                args_schema={"path": "string"},
-            ),
-            lambda tool_args: read_file(workspace, tool_args),
-        )
+        registry = build_tool_registry(workspace)
 
         loop = AgentLoop(
             context_builder=ContextBuilder(),

@@ -58,6 +58,31 @@
 - 长期记忆
 - MCP、Hook、插件系统
 
+## 第三版边界
+
+第三版在第二版基础上只增加：
+
+- `list_dir` 只读目录工具
+- Agent 根据目录列表选择相关 Markdown 文件
+- 多文件读取和综合回答
+
+第三版仍然不做：
+
+- 写 workspace 文件
+- 运行命令
+- 页面控制 Agent
+- 长期记忆
+- MCP、Hook、插件系统
+- 多 Agent
+
+## 第三版安全规则
+
+- `list_dir` 和 `read_file` 都只能访问指定 workspace 内路径。
+- `list_dir` 不递归扫描目录。
+- `list_dir` 不暴露 workspace 外 symlink 目标。
+- DeepSeek 只能返回 `list_dir`、`read_file` 或 `final_answer` 类型的本地 `AgentAction` JSON。
+- 工具执行仍必须通过 `ToolRegistry`。
+
 ## 第二版模型安全规则
 
 - `DEEPSEEK_API_KEY` 只能从环境变量读取。
