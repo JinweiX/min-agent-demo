@@ -1,10 +1,10 @@
-# Min Agent Demo V4 Trace Viewer Explainability Implementation Plan
+# Min Agent Demo V0.4 Trace Viewer Explainability Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Improve the Trace Viewer so a product reviewer can understand each Agentic Loop round, the original request, the final answer, and the explainable input/output of every step without changing Agent runtime behavior.
 
-**Architecture:** V4 is a viewer-only explainability iteration. The Python Agent loop, trace recorder, trace server, tool registry, workspace tools, FakeLLM, DeepSeekLLM, and CLI behavior must remain unchanged unless a test proves a viewer contract cannot be met from the existing `TraceEvent` data. The frontend stays vanilla HTML/CSS/JS and derives all round, summary, and detail views from the existing event stream.
+**Architecture:** V0.4 is a viewer-only explainability iteration. The Python Agent loop, trace recorder, trace server, tool registry, workspace tools, FakeLLM, DeepSeekLLM, and CLI behavior must remain unchanged unless a test proves a viewer contract cannot be met from the existing `TraceEvent` data. The frontend stays vanilla HTML/CSS/JS and derives all round, summary, and detail views from the existing event stream.
 
 **Tech Stack:** Python 3.10+ `unittest`, existing `TraceEvent` JSON stream, vanilla `web/trace_viewer.html`, `web/trace_viewer.css`, and `web/trace_viewer.js`; no frontend framework, no external assets, no new dependencies.
 
@@ -34,7 +34,7 @@
   - final result
   - observation window: left round list, right round details
 - Preserve the Trace Viewer as a read-only observation window.
-- Update tests and docs so the intended V4 behavior is locked down.
+- Update tests and docs so the intended V0.4 behavior is locked down.
 
 ### Out Of Scope
 
@@ -51,7 +51,7 @@
 
 ### Product Boundary
 
-V4 should make this path understandable:
+V0.4 should make this path understandable:
 
 ```text
 Original request
@@ -88,7 +88,7 @@ docs/runbook.md
 
 ### Forbidden Files
 
-Do not modify these files for V4:
+Do not modify these files for V0.4:
 
 ```text
 src/min_agent/agent_loop.py
@@ -129,7 +129,7 @@ Current `TraceEvent` already contains enough information:
 - `observation_added.output`
 - `final_answer.output.message`
 
-V4 should reorganize and explain existing data. It must not change how the Agent works.
+V0.4 should reorganize and explain existing data. It must not change how the Agent works.
 
 ---
 
@@ -208,7 +208,7 @@ Each round list item should also show a compact summary:
 
 Inside a selected round, render events in trace order. Use the original event `step` number as the stable order marker.
 
-Expected V3/V4 example:
+Expected V0.3/V0.4 example:
 
 ```text
 第 1 轮
@@ -268,7 +268,7 @@ Do not name the second metric "大模型调用", because FakeLLM mode does not c
 
 ## 5. Implementation Tasks
 
-### Task 1: Add Source Tests For V4 Viewer Contracts
+### Task 1: Add Source Tests For V0.4 Viewer Contracts
 
 **Files:**
 
@@ -315,7 +315,7 @@ Append these tests to `TraceViewerSourceTest`:
         self.assertIn("解析后的决策", source)
         self.assertIn("原始事件", source)
 
-    def test_v4_does_not_add_agent_controls_or_external_assets(self) -> None:
+    def test_v0_4_does_not_add_agent_controls_or_external_assets(self) -> None:
         html = (ROOT / "web" / "trace_viewer.html").read_text(encoding="utf-8")
         source = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
 
@@ -360,7 +360,7 @@ Expected before implementation:
 FAILED
 ```
 
-The failure should be about missing V4 containers or function names. If it fails for unrelated syntax/import reasons, stop and report.
+The failure should be about missing V0.4 containers or function names. If it fails for unrelated syntax/import reasons, stop and report.
 
 ---
 
@@ -370,7 +370,7 @@ The failure should be about missing V4 containers or function names. If it fails
 
 - Modify: `web/trace_viewer.html`
 
-- [ ] **Step 1: Replace the body layout with the V4 container order**
+- [ ] **Step 1: Replace the body layout with the V0.4 container order**
 
 Keep the existing `<head>` and stylesheet link. Replace only the content inside `<main class="shell">` with:
 
@@ -511,7 +511,7 @@ Run:
 python3 -m unittest tests.test_trace_viewer_source
 ```
 
-Expected: still failing until all V4 functions and containers are wired.
+Expected: still failing until all V0.4 functions and containers are wired.
 
 ---
 
@@ -1094,7 +1094,7 @@ Remove or replace the old `.timeline button` mobile rule.
 
 ---
 
-### Task 10: Update Docs For V4 Boundary
+### Task 10: Update Docs For V0.4 Boundary
 
 **Files:**
 
@@ -1105,12 +1105,12 @@ Remove or replace the old `.timeline button` mobile rule.
 
 - [ ] **Step 1: Update `AGENTS.md`**
 
-Add a V4 section after the V3 section:
+Add a V0.4 section after the V0.3 section:
 
 ```markdown
-## 第四版边界
+## V0.4 边界
 
-第四版在第三版基础上只改进 Trace Viewer 的可理解性：
+V0.4 在 V0.3 基础上只改进 Trace Viewer 的可理解性：
 
 - 顶部展示本次任务统计
 - 展示用户输入的原始需求
@@ -1120,7 +1120,7 @@ Add a V4 section after the V3 section:
 - 每个步骤展示可解释的输入和输出
 - 大模型决策步骤展示发送内容、返回内容和解析后的本地 AgentAction
 
-第四版仍然不做：
+V0.4 仍然不做：
 
 - 页面控制 Agent
 - 修改 Agent 执行逻辑
@@ -1134,12 +1134,12 @@ Add a V4 section after the V3 section:
 
 - [ ] **Step 2: Update `CHANGELOG.md`**
 
-Add a V4 entry above V3:
+Add a V0.4 entry above V0.3:
 
 ```markdown
-## V4: Trace Viewer 可理解性增强
+## V0.4: Trace Viewer 可理解性增强
 
-V4 让观察窗口从“按事件平铺”升级为“按 Agentic Loop 轮次理解”。
+V0.4 让观察窗口从“按事件平铺”升级为“按 Agentic Loop 轮次理解”。
 
 使用者现在可以先看到本次任务的统计、原始需求和最终结果，再进入观察窗口查看每一轮中 Agent 如何整理上下文、做出决策、调用工具、吸收观察结果。大模型决策步骤会展示发送给模型的内容、模型返回内容，以及解析后的本地 `AgentAction`。
 
@@ -1156,22 +1156,22 @@ V4 让观察窗口从“按事件平铺”升级为“按 Agentic Loop 轮次理
 
 - [ ] **Step 3: Update `README.md`**
 
-Add after V3:
+Add after V0.3:
 
 ```markdown
-## V4: 轮次化 Trace Viewer
+## V0.4: 轮次化 Trace Viewer
 
-V4 改进了浏览器观察窗口的可理解性。页面顶部会展示本次任务的执行统计、用户输入的原始需求和最终结果；下方观察窗口按 Agentic Loop 轮次组织执行过程，每一轮内部继续保留具体步骤、输入、输出和原始事件 JSON。
+V0.4 改进了浏览器观察窗口的可理解性。页面顶部会展示本次任务的执行统计、用户输入的原始需求和最终结果；下方观察窗口按 Agentic Loop 轮次组织执行过程，每一轮内部继续保留具体步骤、输入、输出和原始事件 JSON。
 
 DeepSeek 模式下，模型决策步骤会展示发送给模型的 System Prompt、User Prompt、模型返回的 `message.content`，以及解析后的本地 `AgentAction`。FakeLLM 模式下，页面会明确说明没有调用真实大模型。
 ```
 
 - [ ] **Step 4: Update `docs/runbook.md`**
 
-Add a V4 verification section:
+Add a V0.4 verification section:
 
 ```markdown
-## V4 Trace Viewer 验证
+## V0.4 Trace Viewer 验证
 
 1. 运行测试：
 
@@ -1277,7 +1277,7 @@ git status --short
 Expected:
 
 - `git diff --check` reports no whitespace errors.
-- `git status --short` only includes intentional V4 files.
+- `git status --short` only includes intentional V0.4 files.
 
 ---
 
@@ -1285,7 +1285,7 @@ Expected:
 
 Stop and report instead of continuing if any of these happen:
 
-- A V4 requirement appears to require modifying a forbidden Python runtime file.
+- A V0.4 requirement appears to require modifying a forbidden Python runtime file.
 - Existing tests fail for reasons unrelated to viewer source assertions.
 - The page becomes blank.
 - Browser console shows a JavaScript exception.
@@ -1311,7 +1311,7 @@ Suggested next decision: <one concrete option>
 After implementation and verification, report in this exact structure:
 
 ```markdown
-## V4 Completion Report
+## V0.4 Completion Report
 
 ### Changed Files
 

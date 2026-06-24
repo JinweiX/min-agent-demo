@@ -69,7 +69,7 @@ class TraceViewerSourceTest(unittest.TestCase):
         self.assertIn("解析后的决策", source)
         self.assertIn("原始事件", source)
 
-    def test_v4_does_not_add_agent_controls_or_external_assets(self) -> None:
+    def test_v0_4_does_not_add_agent_controls_or_external_assets(self) -> None:
         html = (ROOT / "web" / "trace_viewer.html").read_text(encoding="utf-8")
         source = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
 
@@ -99,7 +99,7 @@ class TraceViewerSourceTest(unittest.TestCase):
         for token in forbidden_source:
             self.assertNotIn(token, source)
 
-    def test_v4_viewer_uses_prototype_hierarchy_classes(self) -> None:
+    def test_v0_4_viewer_uses_prototype_hierarchy_classes(self) -> None:
         html = (ROOT / "web" / "trace_viewer.html").read_text(encoding="utf-8")
         css = (ROOT / "web" / "trace_viewer.css").read_text(encoding="utf-8")
         source = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
@@ -117,7 +117,7 @@ class TraceViewerSourceTest(unittest.TestCase):
         self.assertIn(".step-io-grid", css)
         self.assertIn(".raw-event", css)
 
-    def test_v4_viewer_explains_task_entry_and_round_flow(self) -> None:
+    def test_v0_4_viewer_explains_task_entry_and_round_flow(self) -> None:
         css = (ROOT / "web" / "trace_viewer.css").read_text(encoding="utf-8")
         source = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
 
@@ -135,7 +135,7 @@ class TraceViewerSourceTest(unittest.TestCase):
         self.assertIn(".flow-overview", css)
         self.assertIn(".flow-node", css)
 
-    def test_v4_viewer_explains_task_completion_separately(self) -> None:
+    def test_v0_4_viewer_explains_task_completion_separately(self) -> None:
         css = (ROOT / "web" / "trace_viewer.css").read_text(encoding="utf-8")
         source = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
 
@@ -148,6 +148,90 @@ class TraceViewerSourceTest(unittest.TestCase):
         self.assertIn("run_failed", source)
         self.assertIn("task-completion", source)
         self.assertIn(".task-completion", css)
+
+
+    def test_v0_5_viewer_handles_permission_phases(self) -> None:
+        source = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
+
+        self.assertIn("permission_requested", source)
+        self.assertIn("permission_resolved", source)
+        self.assertIn("Permission Request", source)
+        self.assertIn("User Approved", source)
+        self.assertIn("User Rejected", source)
+        self.assertIn('"tool_started"', source)
+        self.assertIn("event.input?.tool_name", source)
+
+    def test_v0_5_permission_events_do_not_start_rounds(self) -> None:
+        source = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
+
+        build_rounds_start = source.index("function buildRounds")
+        build_rounds_end = source.index("function enrichRound", build_rounds_start)
+        build_rounds_body = source[build_rounds_start:build_rounds_end]
+
+        phases_that_start_rounds = ["context_built"]
+        for phase in phases_that_start_rounds:
+            self.assertIn(phase, build_rounds_body)
+
+        phases_that_do_not_start_rounds = [
+            "permission_requested",
+            "permission_resolved",
+            "run_started",
+            "run_completed",
+            "run_failed",
+            "run_interrupted",
+        ]
+        phase_check_lines = [
+            line.strip()
+            for line in build_rounds_body.splitlines()
+            if line.strip().startswith('if (event.phase === "')
+        ]
+        starting_phases = [
+            line.split('"')[1]
+            for line in phase_check_lines
+        ]
+        for phase in phases_that_do_not_start_rounds:
+            self.assertNotIn(phase, starting_phases)
+
+    def test_v0_5_preserves_existing_v4_structure_tokens(self) -> None:
+        source = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
+        html = (ROOT / "web" / "trace_viewer.html").read_text(encoding="utf-8")
+        css = (ROOT / "web" / "trace_viewer.css").read_text(encoding="utf-8")
+
+        v0_4_tokens = [
+            "task-entry",
+            "task-completion",
+            "flow-overview",
+            "summary-panel",
+            "context-panel",
+            "round-index",
+            "round-status-dot",
+            "round-step-count",
+            "step-io-grid",
+            "raw-event",
+            "flow-node",
+        ]
+
+        for token in v0_4_tokens:
+            found = token in source or token in html or token in css
+            self.assertTrue(found, f"V0.4 token '{token}' no longer present after V0.5 changes")
+
+    def test_v0_5_does_not_add_approve_reject_buttons(self) -> None:
+        html = (ROOT / "web" / "trace_viewer.html").read_text(encoding="utf-8")
+        source = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
+
+        forbidden = [
+            "onclick=\"approve",
+            "onclick=\"reject",
+            "onclick='approve",
+            "onclick='reject",
+            "approveButton",
+            "rejectButton",
+            "id=\"approve",
+            "id=\"reject",
+        ]
+        for token in forbidden:
+            self.assertNotIn(token, html.lower())
+            self.assertNotIn(token, source)
 
 
 if __name__ == "__main__":

@@ -131,7 +131,7 @@ Trace viewer: http://127.0.0.1:<port>/
 
 ### DeepSeek JSON Output 返回空内容
 
-DeepSeek JSON Output 偶尔可能返回空 content。V2 会把它记录为模型调用失败，不会继续解析空字符串。
+DeepSeek JSON Output 偶尔可能返回空 content。V0.2 会把它记录为模型调用失败，不会继续解析空字符串。
 
 处理：
 
@@ -184,7 +184,7 @@ runs/*.json
 
 `events` 中的事件结构与 Trace Viewer 通过 SSE 收到的事件结构一致。
 
-## V3 多文件上下文演示
+## V0.3 多文件上下文演示
 
 运行：
 
@@ -225,7 +225,7 @@ list_dir -> read_file -> read_file -> final_answer
 - 目录路径
 - 非 UTF-8 文件
 
-## V4 Trace Viewer 验证
+## V0.4 Trace Viewer 验证
 
 1. 运行测试：
 
@@ -251,3 +251,59 @@ list_dir -> read_file -> read_file -> final_answer
    - 点击任意轮次，右侧展示该轮内部的有序步骤。
    - 每个步骤能看到输入、输出和原始事件 JSON。
    - 模型决策步骤能看到 FakeLLM 说明或 DeepSeek 请求/响应详情。
+
+## V0.5 写文件权限验证
+
+### Happy Path
+
+确保 `examples/workspace/summary.md` 不存在。运行：
+
+```bash
+PYTHONPATH=src python3 -m min_agent.cli \
+  "请阅读这个工作区里的资料，并生成 summary.md" \
+  --workspace examples/workspace \
+  --no-viewer \
+  --no-browser \
+  --step-delay 0
+```
+
+出现 `Approve? [y/N]` 提示时输入 `y`。
+
+预期：
+- CLI 在执行前请求权限。
+- CLI 退出码 `0`。
+- `examples/workspace/summary.md` 存在。
+- 文件内容基于 workspace 内观察结果生成。
+- 运行记录包含 `permission_requested` 和 `permission_resolved` 事件。
+
+验证后删除 `examples/workspace/summary.md`。
+
+### Rejection Path
+
+运行相同命令，出现提示时输入 `n`。
+
+预期：
+- CLI 请求权限。
+- `examples/workspace/summary.md` 不存在。
+- 最终回答说明用户拒绝了写文件权限。
+- 运行记录包含 `permission_resolved` 且 `approved=False`。
+- 拒绝后没有 `tool_started` for `write_file`。
+
+### Viewer
+
+运行带 viewer 的 happy path：
+
+```bash
+PYTHONPATH=src python3 -m min_agent.cli \
+  "请阅读这个工作区里的资料，并生成 summary.md" \
+  --workspace examples/workspace \
+  --port 8765
+```
+
+浏览器确认：
+- 页面不空白。
+- 权限请求在流程中可见。
+- 权限决定单独展示。
+- 批准后才有 `write_file` 执行。
+- 流程概览包含权限节点。
+- 控制台无 JavaScript 错误。

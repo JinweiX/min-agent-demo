@@ -123,6 +123,51 @@ def list_dir(workspace: Path | str, args: dict[str, Any]) -> ToolResult:
     )
 
 
+def write_file(workspace: Path | str, args: dict[str, Any]) -> ToolResult:
+    path_value = args.get("path")
+    if not isinstance(path_value, str):
+        return ToolResult(success=False, error="path must be a string")
+    if not path_value.strip():
+        return ToolResult(success=False, error="path is required")
+
+    content_value = args.get("content")
+    if not isinstance(content_value, str):
+        return ToolResult(success=False, error="content must be a string")
+
+    mode = args.get("mode", "create")
+    if mode != "create":
+        return ToolResult(success=False, error=f"unsupported mode: {mode}")
+
+    try:
+        resolved = resolve_inside_workspace(workspace, path_value)
+    except (FileNotFoundError, NotADirectoryError, PermissionError) as exc:
+        return ToolResult(success=False, error=str(exc), metadata={"path": path_value})
+
+    if resolved.exists():
+        if resolved.is_dir():
+            return ToolResult(success=False, error=f"path points to a directory: {path_value}", metadata={"path": path_value})
+        return ToolResult(success=False, error=f"file already exists: {path_value}", metadata={"path": path_value})
+
+    if not resolved.parent.exists():
+        return ToolResult(success=False, error=f"parent directory does not exist: {path_value}", metadata={"path": path_value})
+
+    try:
+        resolved.write_text(content_value, encoding="utf-8")
+    except OSError as exc:
+        return ToolResult(success=False, error=f"could not write file: {path_value}: {exc}", metadata={"path": path_value})
+
+    root = ensure_workspace(workspace)
+    return ToolResult(
+        success=True,
+        content=f"wrote file: {path_value}",
+        metadata={
+            "path": str(resolved.relative_to(root)),
+            "bytes": resolved.stat().st_size,
+            "mode": "create",
+        },
+    )
+
+
 def _relative_path(root: Path, path: Path) -> str:
     relative = path.relative_to(root)
     return "." if str(relative) == "." else relative.as_posix()

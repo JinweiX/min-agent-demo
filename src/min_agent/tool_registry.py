@@ -23,6 +23,9 @@ class ToolRegistry:
     def list_specs(self) -> list[ToolSpec]:
         return list(self._specs.values())
 
+    def get_spec(self, name: str) -> ToolSpec | None:
+        return self._specs.get(name)
+
     def call(self, name: str, args: dict[str, Any]) -> ToolResult:
         handler = self._handlers.get(name)
         if handler is None:

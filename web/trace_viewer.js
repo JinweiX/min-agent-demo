@@ -54,8 +54,8 @@ function buildRunSummary(events) {
   return {
     rounds: rounds.filter((round) => round.events.some((event) => event.phase === "llm_decision")).length,
     modelCalls: events.filter((event) => event.phase === "llm_decision").length,
-    listDirCalls: events.filter((event) => event.phase === "tool_started" && event.input?.tool_name === "list_dir").length,
-    readFileCalls: events.filter((event) => event.phase === "tool_started" && event.input?.tool_name === "read_file").length,
+    toolCalls: events.filter((event) => event.phase === "tool_started").length,
+    permissions: events.filter((event) => event.phase === "permission_requested").length,
     observations: events.filter((event) => event.phase === "observation_added").length,
   };
 }
@@ -68,8 +68,8 @@ function renderRunSummary() {
   const items = [
     ["执行轮次", summary.rounds],
     ["模型决策", summary.modelCalls],
-    ["list_dir 调用", summary.listDirCalls],
-    ["read_file 调用", summary.readFileCalls],
+    ["工具调用", summary.toolCalls],
+    ["权限请求", summary.permissions],
     ["观察结果", summary.observations],
   ];
 
@@ -165,6 +165,8 @@ function moduleForPhase(phase) {
     "tool_started": "Tools",
     "tool_finished": "Tools",
     "observation_added": "Memory / State",
+    "permission_requested": "Permission",
+    "permission_resolved": "Permission",
     "final_answer": "Agent Loop",
     "run_completed": "Agent Loop",
     "run_failed": "Agent Loop",
@@ -521,6 +523,10 @@ function buildFlowItems(events) {
       add("Model");
     } else if (event.phase === "tool_started") {
       add(`Tool: ${event.input?.tool_name || "unknown"}`);
+    } else if (event.phase === "permission_requested") {
+      add("Permission Request");
+    } else if (event.phase === "permission_resolved") {
+      add(event.output?.approved ? "User Approved" : "User Rejected");
     } else if (event.phase === "observation_added") {
       add("Observation");
     } else if (event.phase === "final_answer") {

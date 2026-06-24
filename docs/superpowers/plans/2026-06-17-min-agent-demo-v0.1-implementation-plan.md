@@ -1,4 +1,4 @@
-# Min Agent Demo V1 Implementation Plan
+# Min Agent Demo V0.1 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -45,7 +45,7 @@
 - Do not advance the loop using step number.
 - Do not let Trace Viewer mutate Agent state.
 - Do not read outside the workspace.
-- Do not introduce non-standard dependencies in V1.
+- Do not introduce non-standard dependencies in V0.1.
 - Do not commit unless the user explicitly confirms.
 
 ---
@@ -235,7 +235,7 @@ class TraceEvent:
 
 ## 3. Runtime Flow
 
-V1 runtime should follow this loop:
+V0.1 runtime should follow this loop:
 
 ```text
 CLI validates workspace
@@ -1002,7 +1002,7 @@ class FakeLLM:
         return None
 
     def _preview_content(self, target_path: str, content: str) -> str:
-        # V1 does not test summary quality. This preview makes FakeLLM behavior deterministic.
+        # V0.1 does not test summary quality. This preview makes FakeLLM behavior deterministic.
         lines = [line.strip() for line in content.splitlines() if line.strip()]
         if not lines:
             return f"{target_path} 是一个空文件，没有可总结的内容。"
@@ -1731,7 +1731,7 @@ Expected: all tests pass.
 
 - [ ] **Step 1: Update viewer behavior requirements**
 
-No Python test is required for DOM rendering in V1 because there is no browser test runner. The implementation should be reviewed manually by opening the local viewer during Task 11.
+No Python test is required for DOM rendering in V0.1 because there is no browser test runner. The implementation should be reviewed manually by opening the local viewer during Task 11.
 
 Required viewer behavior:
 
@@ -2335,8 +2335,8 @@ This plan intentionally does not include `git commit` steps because project rule
 
 Before implementation starts, review these points:
 
-- The plan keeps real model integration out of V1.
-- The plan keeps write-file and command execution out of V1.
+- The plan keeps real model integration out of V0.1.
+- The plan keeps write-file and command execution out of V0.1.
 - `AgentLoop` remains generic and does not know about `notes.md`.
 - `FakeLLM` is deterministic but context-based.
 - `ToolRegistry` is the only tool dispatch path.

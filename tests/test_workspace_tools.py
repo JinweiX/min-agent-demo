@@ -311,5 +311,119 @@ class WorkspaceToolsTest(unittest.TestCase):
         )
 
 
+    def test_write_file_success_creates_new_file(self) -> None:
+        from min_agent.tools.workspace import write_file
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            result = write_file(workspace, {"path": "summary.md", "content": "# Summary\n\nHello."})
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.content, "wrote file: summary.md")
+        self.assertEqual(result.metadata["path"], "summary.md")
+        self.assertGreater(result.metadata["bytes"], 0)
+
+    def test_write_file_default_mode_is_create(self) -> None:
+        from min_agent.tools.workspace import write_file
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            result = write_file(workspace, {"path": "summary.md", "content": "hello"})
+
+        self.assertTrue(result.success)
+        self.assertEqual(result.metadata["mode"], "create")
+
+    def test_write_file_rejects_non_string_path(self) -> None:
+        from min_agent.tools.workspace import write_file
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = write_file(Path(tmp), {"path": 123, "content": "hello"})
+
+        self.assertFalse(result.success)
+        self.assertIn("path must be a string", result.error or "")
+
+    def test_write_file_rejects_non_string_content(self) -> None:
+        from min_agent.tools.workspace import write_file
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = write_file(Path(tmp), {"path": "summary.md", "content": 123})
+
+        self.assertFalse(result.success)
+        self.assertIn("content must be a string", result.error or "")
+
+    def test_write_file_rejects_unsupported_mode(self) -> None:
+        from min_agent.tools.workspace import write_file
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = write_file(Path(tmp), {"path": "summary.md", "content": "hello", "mode": "overwrite"})
+
+        self.assertFalse(result.success)
+        self.assertIn("unsupported mode", result.error or "")
+
+    def test_write_file_rejects_parent_escape(self) -> None:
+        from min_agent.tools.workspace import write_file
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "workspace"
+            workspace.mkdir()
+            result = write_file(workspace, {"path": "../secret.md", "content": "secret"})
+
+        self.assertFalse(result.success)
+        self.assertIn("outside workspace", result.error or "")
+
+    def test_write_file_rejects_absolute_path_outside_workspace(self) -> None:
+        from min_agent.tools.workspace import write_file
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "workspace"
+            workspace.mkdir()
+            outside = Path(tmp) / "secret.md"
+            result = write_file(workspace, {"path": str(outside), "content": "secret"})
+
+        self.assertFalse(result.success)
+        self.assertIn("outside workspace", result.error or "")
+
+    def test_write_file_rejects_existing_file(self) -> None:
+        from min_agent.tools.workspace import write_file
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            (workspace / "existing.md").write_text("old", encoding="utf-8")
+            result = write_file(workspace, {"path": "existing.md", "content": "new"})
+
+        self.assertFalse(result.success)
+        self.assertIn("file already exists", result.error or "")
+
+    def test_write_file_rejects_missing_parent_directory(self) -> None:
+        from min_agent.tools.workspace import write_file
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            result = write_file(workspace, {"path": "missing/summary.md", "content": "hello"})
+
+        self.assertFalse(result.success)
+        self.assertIn("parent directory does not exist", result.error or "")
+
+    def test_write_file_rejects_directory_path(self) -> None:
+        from min_agent.tools.workspace import write_file
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            (workspace / "folder").mkdir()
+            result = write_file(workspace, {"path": "folder", "content": "hello"})
+
+        self.assertFalse(result.success)
+        self.assertIn("path points to a directory", result.error or "")
+
+    def test_write_file_rejects_empty_path(self) -> None:
+        from min_agent.tools.workspace import write_file
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = write_file(Path(tmp), {"path": "   ", "content": "hello"})
+
+        self.assertFalse(result.success)
+        self.assertIn("path is required", result.error or "")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -64,6 +64,44 @@ class CoreTypesTest(unittest.TestCase):
 
         self.assertEqual(result.to_dict(), {"message": "done", "success": True})
 
+    def test_trace_event_with_permission_requested_phase(self) -> None:
+        from min_agent.types import TraceEvent
+
+        event = TraceEvent(
+            run_id="run-1",
+            step=5,
+            timestamp="2026-06-23T16:00:00+08:00",
+            phase="permission_requested",
+            status="waiting",
+            title="请求权限：write_file",
+            reason="需要用户批准写文件",
+            input={"tool_name": "write_file", "args": {"path": "summary.md"}, "preview": "# Summary\n..."},
+            output={},
+        )
+
+        data = event.to_dict()
+        self.assertEqual(data["phase"], "permission_requested")
+        self.assertEqual(data["input"]["tool_name"], "write_file")
+
+    def test_trace_event_with_permission_resolved_phase(self) -> None:
+        from min_agent.types import TraceEvent
+
+        event = TraceEvent(
+            run_id="run-1",
+            step=6,
+            timestamp="2026-06-23T16:00:01+08:00",
+            phase="permission_resolved",
+            status="completed",
+            title="权限已批准",
+            reason="用户批准执行 write_file",
+            input={"tool_name": "write_file", "args": {"path": "summary.md"}},
+            output={"approved": True},
+        )
+
+        data = event.to_dict()
+        self.assertEqual(data["phase"], "permission_resolved")
+        self.assertTrue(data["output"]["approved"])
+
 
 if __name__ == "__main__":
     unittest.main()

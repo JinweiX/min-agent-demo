@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 
 from min_agent.context_builder import ContextBuilder
 from min_agent.decision_model import DecisionModel
 from min_agent.tool_registry import ToolRegistry
 from min_agent.trace_recorder import TraceRecorder
-from min_agent.types import AgentRunResult, Observation
+from min_agent.types import AgentAction, AgentRunResult, Observation, ToolResult
+
+
+def preview_text(value: str, limit: int = 200) -> str:
+    return value if len(value) <= limit else value[:limit] + "..."
 
 
 class AgentLoop:
@@ -19,6 +24,7 @@ class AgentLoop:
         workspace: str,
         max_turns: int = 8,
         step_delay_seconds: float = 0.4,
+        permission_callback: Callable[[AgentAction], bool] | None = None,
     ) -> None:
         self.context_builder = context_builder
         self.llm = llm
@@ -27,6 +33,7 @@ class AgentLoop:
         self.workspace = workspace
         self.max_turns = max_turns
         self.step_delay_seconds = step_delay_seconds
+        self.permission_callback = permission_callback or (lambda _action: False)
         self.observations: list[Observation] = []
 
     def run(self, user_goal: str) -> AgentRunResult:
@@ -84,6 +91,64 @@ class AgentLoop:
 
             if action.tool_name is None:
                 return self._fail("模型返回了工具调用，但没有提供工具名称")
+
+            spec = self.tools.get_spec(action.tool_name)
+            if spec is not None and spec.requires_permission:
+                content = action.args.get("content")
+                content_preview = preview_text(content) if isinstance(content, str) and content else ""
+
+                self.recorder.emit(
+                    phase="permission_requested",
+                    status="waiting",
+                    title=f"请求权限：{action.tool_name}",
+                    reason=action.reason,
+                    input={
+                        "tool_name": action.tool_name,
+                        "args": action.args,
+                        "preview": content_preview,
+                    },
+                    output={},
+                )
+
+                approved = self.permission_callback(action)
+
+                if approved:
+                    self.recorder.emit(
+                        phase="permission_resolved",
+                        status="completed",
+                        title="权限已批准",
+                        reason=f"用户批准执行 {action.tool_name}",
+                        input={"tool_name": action.tool_name, "args": action.args},
+                        output={"approved": True},
+                    )
+                else:
+                    self.recorder.emit(
+                        phase="permission_resolved",
+                        status="interrupted",
+                        title="权限被拒绝",
+                        reason=f"用户拒绝执行 {action.tool_name}",
+                        input={"tool_name": action.tool_name, "args": action.args},
+                        output={"approved": False},
+                    )
+
+                    rejected_observation = Observation(
+                        tool_name=action.tool_name,
+                        args=action.args,
+                        result=ToolResult(
+                            success=False,
+                            error="permission denied by user",
+                            metadata={"permission": "rejected"},
+                        ),
+                    )
+                    self.observations.append(rejected_observation)
+                    self.recorder.emit(
+                        phase="observation_added",
+                        status="running",
+                        title="吸收工具结果",
+                        reason="用户拒绝了权限，将拒绝结果写回上下文",
+                        output=rejected_observation.to_dict(),
+                    )
+                    continue
 
             self._pause()
             self.recorder.emit(

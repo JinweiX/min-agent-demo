@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT / "src"))
 
 
 class CliTest(unittest.TestCase):
-    def test_cli_registers_list_dir_tool(self) -> None:
+    def test_cli_registers_three_tools_including_write_file(self) -> None:
         from min_agent.cli import build_tool_registry
 
         with tempfile.TemporaryDirectory() as tmp:
@@ -23,7 +23,21 @@ class CliTest(unittest.TestCase):
             registry = build_tool_registry(workspace)
 
         tool_names = {tool.name for tool in registry.list_specs()}
-        self.assertEqual(tool_names, {"read_file", "list_dir"})
+        self.assertEqual(tool_names, {"read_file", "list_dir", "write_file"})
+
+    def test_write_file_spec_requires_permission(self) -> None:
+        from min_agent.cli import build_tool_registry
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "workspace"
+            workspace.mkdir()
+
+            registry = build_tool_registry(workspace)
+
+        specs = {spec.name: spec for spec in registry.list_specs()}
+        self.assertFalse(specs["read_file"].requires_permission)
+        self.assertFalse(specs["list_dir"].requires_permission)
+        self.assertTrue(specs["write_file"].requires_permission)
 
     def test_cli_runs_without_viewer_and_saves_record(self) -> None:
         from min_agent.cli import main
@@ -159,6 +173,56 @@ class CliTest(unittest.TestCase):
                 )
 
         self.assertEqual(exit_code, 2)
+
+
+    def test_confirm_tool_call_returns_true_for_y(self) -> None:
+        from min_agent.cli import confirm_tool_call
+
+        with patch("builtins.input", return_value="y"):
+            result = confirm_tool_call("write_file", {"path": "summary.md"}, "need to write")
+
+        self.assertTrue(result)
+
+    def test_confirm_tool_call_returns_true_for_uppercase_y(self) -> None:
+        from min_agent.cli import confirm_tool_call
+
+        with patch("builtins.input", return_value="Y"):
+            result = confirm_tool_call("write_file", {"path": "summary.md"}, "need to write")
+
+        self.assertTrue(result)
+
+    def test_confirm_tool_call_returns_false_for_empty_input(self) -> None:
+        from min_agent.cli import confirm_tool_call
+
+        with patch("builtins.input", return_value=""):
+            result = confirm_tool_call("write_file", {"path": "summary.md"}, "need to write")
+
+        self.assertFalse(result)
+
+    def test_confirm_tool_call_returns_false_for_n(self) -> None:
+        from min_agent.cli import confirm_tool_call
+
+        with patch("builtins.input", return_value="n"):
+            result = confirm_tool_call("write_file", {"path": "summary.md"}, "need to write")
+
+        self.assertFalse(result)
+
+    def test_preview_text_truncates_content_longer_than_200(self) -> None:
+        from min_agent.cli import preview_text
+
+        long_text = "a" * 250
+        result = preview_text(long_text)
+
+        self.assertEqual(len(result), 203)
+        self.assertTrue(result.endswith("..."))
+
+    def test_preview_text_does_not_truncate_short_content(self) -> None:
+        from min_agent.cli import preview_text
+
+        short_text = "a" * 100
+        result = preview_text(short_text)
+
+        self.assertEqual(result, short_text)
 
 
 if __name__ == "__main__":

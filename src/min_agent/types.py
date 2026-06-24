@@ -12,6 +12,8 @@ EventPhase = Literal[
     "tool_started",
     "tool_finished",
     "observation_added",
+    "permission_requested",
+    "permission_resolved",
     "final_answer",
     "run_completed",
     "run_failed",

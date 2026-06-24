@@ -1,10 +1,10 @@
-# Min Agent Demo V2 DeepSeek Implementation Plan
+# Min Agent Demo V0.2 DeepSeek Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a DeepSeek-backed real decision model while preserving the V1 AgentLoop, ToolRegistry, workspace safety, Trace Viewer, and fake-model fallback.
+**Goal:** Add a DeepSeek-backed real decision model while preserving the V0.1 AgentLoop, ToolRegistry, workspace safety, Trace Viewer, and fake-model fallback.
 
-**Architecture:** V2 keeps tool execution local. DeepSeek only returns a structured local `AgentAction` JSON object; `AgentLoop` still decides how to route that action, and all tools still execute through `ToolRegistry`. The default mode remains `FakeLLM`; DeepSeek is opt-in through CLI flags and reads its API key only from `DEEPSEEK_API_KEY`.
+**Architecture:** V0.2 keeps tool execution local. DeepSeek only returns a structured local `AgentAction` JSON object; `AgentLoop` still decides how to route that action, and all tools still execute through `ToolRegistry`. The default mode remains `FakeLLM`; DeepSeek is opt-in through CLI flags and reads its API key only from `DEEPSEEK_API_KEY`.
 
 **Tech Stack:** Python 3.10+ standard library, `urllib.request`, `json`, `unittest`, DeepSeek OpenAI-compatible Chat Completions API, DeepSeek JSON Output (`response_format={"type":"json_object"}`), vanilla existing Trace Viewer.
 
@@ -20,7 +20,7 @@
 - CLI switch between `fake` and `deepseek`.
 - `DEEPSEEK_API_KEY` startup validation only when DeepSeek mode is selected.
 - Robust model-failure convergence: request failures, HTTP errors, empty content, malformed responses, invalid JSON, and invalid actions must become observable Agent failures instead of uncaught crashes.
-- Documentation for V1/V2 comparison and DeepSeek usage.
+- Documentation for V0.1/V0.2 comparison and DeepSeek usage.
 - Unit tests with fake HTTP openers; no real DeepSeek requests in tests.
 
 ### Out Of Scope
@@ -41,8 +41,8 @@
 - DeepSeek supports an OpenAI-compatible API format with `base_url` `https://api.deepseek.com`.
 - The non-streaming chat API is `/chat/completions`.
 - DeepSeek JSON Output requires `response_format={"type":"json_object"}` and the prompt should include the word `json` plus an example JSON output.
-- DeepSeek docs warn JSON Output may occasionally return empty content; V2 must handle empty content.
-- Current DeepSeek docs list `deepseek-v4-flash` and `deepseek-v4-pro`; V2 defaults to `deepseek-v4-flash`.
+- DeepSeek docs warn JSON Output may occasionally return empty content; V0.2 must handle empty content.
+- Current DeepSeek docs list `deepseek-v4-flash` and `deepseek-v4-pro`; V0.2 defaults to `deepseek-v4-flash`.
 
 References:
 
@@ -96,7 +96,7 @@ The user has confirmed the current uncommitted `examples/workspace/notes.md` cha
 
 ### CLI Modes
 
-Default remains V1 fake mode:
+Default remains V0.1 fake mode:
 
 ```bash
 PYTHONPATH=src python3 -m min_agent.cli "请读取 notes.md 并总结" --workspace examples/workspace
@@ -181,7 +181,7 @@ Safe error messages must not include `DEEPSEEK_API_KEY`.
 
 ## 3. Implementation Tasks
 
-### Task 1: Update V2 Project Rules
+### Task 1: Update V0.2 Project Rules
 
 **Files:**
 - Modify: `AGENTS.md`
@@ -190,18 +190,18 @@ Safe error messages must not include `DEEPSEEK_API_KEY`.
 
 - [ ] **Step 1: Update `AGENTS.md` before implementation**
 
-Add a V2 section after the V1 scope:
+Add a V0.2 section after the V0.1 scope:
 
 ```markdown
-## 第二版边界
+## V0.2 边界
 
-第二版在第一版基础上只增加：
+V0.2 在 V0.1 基础上只增加：
 
 - DeepSeek 真实模型决策器
 - CLI 在 `fake` 和 `deepseek` 决策器之间切换
 - DeepSeek JSON Output 到本地 `AgentAction`
 
-第二版仍然不做：
+V0.2 仍然不做：
 
 - 写 workspace 文件
 - 运行命令
@@ -211,7 +211,7 @@ Add a V2 section after the V1 scope:
 - 长期记忆
 - MCP、Hook、插件系统
 
-## 第二版模型安全规则
+## V0.2 模型安全规则
 
 - `DEEPSEEK_API_KEY` 只能从环境变量读取。
 - 不创建 `.env`。
@@ -224,14 +224,14 @@ Add a V2 section after the V1 scope:
 - 模型请求失败、超时、HTTP 非 2xx、空 content、非法 JSON、非法 action 都必须收敛为可观察的失败结果，不能让 CLI 崩溃。
 ```
 
-- [ ] **Step 2: Update README V1/V2 wording**
+- [ ] **Step 2: Update README V0.1/V0.2 wording**
 
-Add a short V2 section:
+Add a short V0.2 section:
 
 ```markdown
-## V2: DeepSeek 决策器
+## V0.2: DeepSeek 决策器
 
-V2 可以把默认的 `FakeLLM` 替换为 DeepSeek 真实模型决策器，但工具执行仍由本地 `ToolRegistry` 控制。
+V0.2 可以把默认的 `FakeLLM` 替换为 DeepSeek 真实模型决策器，但工具执行仍由本地 `ToolRegistry` 控制。
 
 DeepSeek 模式使用环境变量：
 
@@ -1223,16 +1223,16 @@ DEEPSEEK_API_KEY=... PYTHONPATH=src python3 -m min_agent.cli \
 
 - [ ] **Step 2: Update product changelog**
 
-In `CHANGELOG.md`, update the V2 entry during implementation completion:
+In `CHANGELOG.md`, update the V0.2 entry during implementation completion:
 
 ```markdown
-## V2 - 接入真实模型判断能力
+## V0.2 - 接入真实模型判断能力
 
 状态：已完成
 
 这一版解决什么问题：
 
-V1 只能用预设规则演示 Agent 判断。V2 接入 DeepSeek，让 Agent 可以由真实模型判断下一步，同时保留本地工具边界。
+V0.1 只能用预设规则演示 Agent 判断。V0.2 接入 DeepSeek，让 Agent 可以由真实模型判断下一步，同时保留本地工具边界。
 
 使用者能感受到什么：
 
@@ -1366,8 +1366,8 @@ Before implementation is considered complete:
 
 ## 5. Execution Notes
 
-- Current branch should be `codex/min-agent-demo-v2`.
-- V1 is preserved at tag `v1`.
+- Current branch should be `codex/min-agent-demo-v0.2`.
+- V0.1 is preserved at tag `v1`.
 - The user confirmed the current `examples/workspace/notes.md` modification should be preserved.
 - Do not commit unless the user explicitly confirms.
 - Do not push.

@@ -288,5 +288,276 @@ class FakeLLMTest(unittest.TestCase):
         self.assertIsNone(action.tool_name)
 
 
+    def test_requests_write_file_when_goal_asks_to_generate_summary_md(self) -> None:
+        from min_agent.fake_llm import FakeLLM
+        from min_agent.types import AgentContext, Observation, ToolResult, ToolSpec
+
+        llm = FakeLLM()
+        context = AgentContext(
+            user_goal="请阅读这个工作区里的资料，并生成 summary.md",
+            workspace="examples/workspace",
+            available_tools=[
+                ToolSpec(name="list_dir", description="List directory"),
+                ToolSpec(name="read_file", description="Read file"),
+                ToolSpec(name="write_file", description="Write file"),
+            ],
+            observations=[
+                Observation(
+                    tool_name="list_dir",
+                    args={"path": "."},
+                    result=ToolResult(
+                        success=True,
+                        metadata={
+                            "entries": [
+                                {"type": "file", "path": "usage.md"},
+                                {"type": "file", "path": "project.md"},
+                            ]
+                        },
+                    ),
+                ),
+                Observation(
+                    tool_name="read_file",
+                    args={"path": "usage.md"},
+                    result=ToolResult(success=True, content="# 使用方式\nCLI 启动。"),
+                ),
+                Observation(
+                    tool_name="read_file",
+                    args={"path": "project.md"},
+                    result=ToolResult(success=True, content="# 项目概览\n最小 Agent。"),
+                ),
+            ],
+        )
+
+        action = llm.decide(context)
+
+        self.assertEqual(action.kind, "tool_call")
+        self.assertEqual(action.tool_name, "write_file")
+        self.assertEqual(action.args["path"], "summary.md")
+        self.assertEqual(action.args.get("mode"), "create")
+        self.assertIn("# Summary", action.args.get("content", ""))
+        self.assertIn("usage.md", action.args.get("content", ""))
+        self.assertIn("project.md", action.args.get("content", ""))
+
+    def test_write_goal_without_source_files_lists_workspace_first(self) -> None:
+        from min_agent.fake_llm import FakeLLM
+        from min_agent.types import AgentContext, ToolSpec
+
+        llm = FakeLLM()
+        context = AgentContext(
+            user_goal="请阅读这个工作区里的资料，并生成 summary.md",
+            workspace="examples/workspace",
+            available_tools=[
+                ToolSpec(name="list_dir", description="List directory"),
+                ToolSpec(name="read_file", description="Read file"),
+                ToolSpec(name="write_file", description="Write file"),
+            ],
+            observations=[],
+        )
+
+        action = llm.decide(context)
+
+        self.assertEqual(action.kind, "tool_call")
+        self.assertEqual(action.tool_name, "list_dir")
+        self.assertEqual(action.args, {"path": "."})
+
+    def test_write_goal_after_listing_reads_source_files_not_output_file(self) -> None:
+        from min_agent.fake_llm import FakeLLM
+        from min_agent.types import AgentContext, Observation, ToolResult, ToolSpec
+
+        llm = FakeLLM()
+        context = AgentContext(
+            user_goal="请阅读这个工作区里的资料，并生成 summary.md",
+            workspace="examples/workspace",
+            available_tools=[
+                ToolSpec(name="list_dir", description="List directory"),
+                ToolSpec(name="read_file", description="Read file"),
+                ToolSpec(name="write_file", description="Write file"),
+            ],
+            observations=[
+                Observation(
+                    tool_name="list_dir",
+                    args={"path": "."},
+                    result=ToolResult(
+                        success=True,
+                        metadata={
+                            "entries": [
+                                {"type": "file", "path": "usage.md"},
+                                {"type": "file", "path": "project.md"},
+                            ]
+                        },
+                    ),
+                ),
+            ],
+        )
+
+        action = llm.decide(context)
+
+        self.assertEqual(action.kind, "tool_call")
+        self.assertEqual(action.tool_name, "read_file")
+        self.assertIn(action.args["path"], {"usage.md", "project.md"})
+        self.assertNotEqual(action.args["path"], "summary.md")
+
+    def test_write_goal_reads_remaining_source_files_before_write(self) -> None:
+        from min_agent.fake_llm import FakeLLM
+        from min_agent.types import AgentContext, Observation, ToolResult, ToolSpec
+
+        llm = FakeLLM()
+        context = AgentContext(
+            user_goal="请阅读这个工作区里的资料，并生成 summary.md",
+            workspace="examples/workspace",
+            available_tools=[
+                ToolSpec(name="list_dir", description="List directory"),
+                ToolSpec(name="read_file", description="Read file"),
+                ToolSpec(name="write_file", description="Write file"),
+            ],
+            observations=[
+                Observation(
+                    tool_name="list_dir",
+                    args={"path": "."},
+                    result=ToolResult(
+                        success=True,
+                        metadata={
+                            "entries": [
+                                {"type": "file", "path": "usage.md"},
+                                {"type": "file", "path": "project.md"},
+                            ]
+                        },
+                    ),
+                ),
+                Observation(
+                    tool_name="read_file",
+                    args={"path": "project.md"},
+                    result=ToolResult(success=True, content="# 项目概览\n最小 Agent。"),
+                ),
+            ],
+        )
+
+        action = llm.decide(context)
+
+        self.assertEqual(action.kind, "tool_call")
+        self.assertEqual(action.tool_name, "read_file")
+        self.assertEqual(action.args["path"], "usage.md")
+
+    def test_requests_write_file_for_report_md_after_reading_sources(self) -> None:
+        from min_agent.fake_llm import FakeLLM
+        from min_agent.types import AgentContext, Observation, ToolResult, ToolSpec
+
+        llm = FakeLLM()
+        context = AgentContext(
+            user_goal="请读取项目资料并写入 report.md",
+            workspace="examples/workspace",
+            available_tools=[
+                ToolSpec(name="read_file", description="Read file"),
+                ToolSpec(name="write_file", description="Write file"),
+            ],
+            observations=[
+                Observation(
+                    tool_name="read_file",
+                    args={"path": "project.md"},
+                    result=ToolResult(success=True, content="# 项目概览\n最小 Agent。"),
+                ),
+            ],
+        )
+
+        action = llm.decide(context)
+
+        self.assertEqual(action.kind, "tool_call")
+        self.assertEqual(action.tool_name, "write_file")
+        self.assertEqual(action.args["path"], "report.md")
+        self.assertIn("project.md", action.args.get("content", ""))
+
+    def test_final_answer_after_successful_write(self) -> None:
+        from min_agent.fake_llm import FakeLLM
+        from min_agent.types import AgentContext, Observation, ToolResult, ToolSpec
+
+        llm = FakeLLM()
+        context = AgentContext(
+            user_goal="请生成 summary.md",
+            workspace="examples/workspace",
+            available_tools=[
+                ToolSpec(name="read_file", description="Read file"),
+                ToolSpec(name="write_file", description="Write file"),
+            ],
+            observations=[
+                Observation(
+                    tool_name="read_file",
+                    args={"path": "summary.md"},
+                    result=ToolResult(success=True, content="# 示例\nhello."),
+                ),
+                Observation(
+                    tool_name="write_file",
+                    args={"path": "summary.md", "mode": "create"},
+                    result=ToolResult(success=True, content="wrote file: summary.md"),
+                ),
+            ],
+        )
+
+        action = llm.decide(context)
+
+        self.assertEqual(action.kind, "final_answer")
+        self.assertTrue(action.success)
+        self.assertIn("已生成 summary.md", action.message or "")
+
+    def test_final_answer_after_permission_rejected(self) -> None:
+        from min_agent.fake_llm import FakeLLM
+        from min_agent.types import AgentContext, Observation, ToolResult, ToolSpec
+
+        llm = FakeLLM()
+        context = AgentContext(
+            user_goal="请生成 summary.md",
+            workspace="examples/workspace",
+            available_tools=[
+                ToolSpec(name="read_file", description="Read file"),
+                ToolSpec(name="write_file", description="Write file"),
+            ],
+            observations=[
+                Observation(
+                    tool_name="read_file",
+                    args={"path": "summary.md"},
+                    result=ToolResult(success=True, content="# 示例\nhello."),
+                ),
+                Observation(
+                    tool_name="write_file",
+                    args={"path": "summary.md", "mode": "create"},
+                    result=ToolResult(
+                        success=False,
+                        error="permission denied by user",
+                        metadata={"permission": "rejected"},
+                    ),
+                ),
+            ],
+        )
+
+        action = llm.decide(context)
+
+        self.assertEqual(action.kind, "final_answer")
+        self.assertFalse(action.success)
+        self.assertIn("拒绝了写文件权限", action.message or "")
+
+    def test_no_write_file_when_write_tool_unavailable(self) -> None:
+        from min_agent.fake_llm import FakeLLM
+        from min_agent.types import AgentContext, Observation, ToolResult, ToolSpec
+
+        llm = FakeLLM()
+        context = AgentContext(
+            user_goal="请生成 summary.md",
+            workspace="examples/workspace",
+            available_tools=[ToolSpec(name="read_file", description="Read file")],
+            observations=[
+                Observation(
+                    tool_name="read_file",
+                    args={"path": "summary.md"},
+                    result=ToolResult(success=True, content="hello"),
+                ),
+            ],
+        )
+
+        action = llm.decide(context)
+
+        self.assertEqual(action.kind, "final_answer")
+        self.assertFalse(action.success)
+        self.assertIn("write_file", action.message or "")
+
+
 if __name__ == "__main__":
     unittest.main()

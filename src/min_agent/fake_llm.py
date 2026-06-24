@@ -13,11 +13,14 @@ PATH_KEYWORDS = {
     "project": ("project", "项目", "demo", "目标", "概览"),
     "usage": ("usage", "使用", "方式", "用法", "运行", "命令"),
 }
+WRITE_VERBS = ("生成", "写入", "保存", "create", "write", "save")
 
 
 class FakeLLM:
     def decide(self, context: AgentContext) -> AgentAction:
-        target_paths = self._extract_target_paths(context.user_goal)[:MAX_FAKE_READS]
+        mentioned_paths = self._extract_target_paths(context.user_goal)
+        write_target = self._extract_write_target(context.user_goal)
+        target_paths = self._source_target_paths(mentioned_paths, write_target)[:MAX_FAKE_READS]
         if not target_paths:
             listing_observation = self._find_latest_observation(
                 context.observations,
@@ -25,35 +28,44 @@ class FakeLLM:
                 {"path": "."},
             )
             if listing_observation is None:
-                if self._tool_available(context, "list_dir"):
+                observed_read_paths = self._read_paths_from_observations(context.observations)
+                if write_target and observed_read_paths:
+                    target_paths = observed_read_paths[:MAX_FAKE_READS]
+                elif self._tool_available(context, "list_dir"):
                     return AgentAction.tool_call(
                         tool_name="list_dir",
                         args={"path": "."},
                         reason="用户目标没有指定 Markdown 文件，需要先查看 workspace 根目录中有哪些文件",
                     )
-                return self._cannot_decide_without_file_path()
-
-            if not listing_observation.result.success:
+                else:
+                    return self._cannot_decide_without_file_path()
+            elif not listing_observation.result.success:
                 return AgentAction.final_answer(
                     message=f"列出 workspace 文件失败：{listing_observation.result.error}",
                     reason="目录列表工具没有返回可用于选择文件的结果",
                     success=False,
                 )
+            else:
+                listed_paths = self._markdown_paths_from_listing(listing_observation)
+                if write_target:
+                    listed_paths = [path for path in listed_paths if path != write_target]
 
-            target_paths = self._select_markdown_paths(
-                context.user_goal,
-                self._markdown_paths_from_listing(listing_observation),
-            )[:MAX_FAKE_READS]
-            if not target_paths:
-                return AgentAction.final_answer(
-                    message="没有在 workspace 根目录中发现可总结的 Markdown 文件。",
-                    reason="目录列表结果中没有 type=file 且 path 以 .md 结尾的条目",
-                    success=False,
-                )
+                target_paths = self._select_markdown_paths(
+                    context.user_goal,
+                    listed_paths,
+                )[:MAX_FAKE_READS]
+                if not target_paths:
+                    return AgentAction.final_answer(
+                        message="没有在 workspace 根目录中发现可总结的 Markdown 文件。",
+                        reason="目录列表结果中没有 type=file 且 path 以 .md 结尾的条目",
+                        success=False,
+                    )
 
         for target_path in target_paths:
             observation = self._find_latest_read_observation(context.observations, target_path)
             if observation is None:
+                if target_path == write_target and self._tool_available(context, "write_file"):
+                    continue
                 if not self._tool_available(context, "read_file"):
                     return AgentAction.final_answer(
                         message=f"无法读取 {target_path}：当前上下文没有可用的 read_file 工具。",
@@ -72,6 +84,47 @@ class FakeLLM:
                     reason="工具没有返回可用于总结的文件内容",
                     success=False,
                 )
+
+        if write_target:
+            if not self._tool_available(context, "write_file"):
+                return AgentAction.final_answer(
+                    message=f"无法写入 {write_target}：当前上下文没有可用的 write_file 工具。",
+                    reason="用户目标需要写文件，但 write_file 工具不可用",
+                    success=False,
+                )
+
+            write_obs = self._find_write_observation(context.observations, write_target)
+            if write_obs is None:
+                read_paths = self._read_paths_from_observations(context.observations) or target_paths
+                write_content = self._build_write_content(read_paths, context.observations)
+                return AgentAction.tool_call(
+                    tool_name="write_file",
+                    args={
+                        "path": write_target,
+                        "content": write_content,
+                        "mode": "create",
+                    },
+                    reason=f"已读取所需文件，需要把综合总结写入 {write_target}",
+                )
+
+            if write_obs.result.success:
+                return AgentAction.final_answer(
+                    message=f"已生成 {write_target}。\n{write_obs.result.content}",
+                    reason=f"write_file 已成功创建 {write_target}",
+                )
+
+            if write_obs.result.metadata.get("permission") == "rejected":
+                return AgentAction.final_answer(
+                    message=f"没有生成 {write_target}，因为用户拒绝了写文件权限。",
+                    reason="用户拒绝了写文件权限，Agent 不再重试",
+                    success=False,
+                )
+
+            return AgentAction.final_answer(
+                message=f"写入文件失败：{write_obs.result.error}",
+                reason="write_file 工具返回了错误",
+                success=False,
+            )
 
         return AgentAction.final_answer(
             message=self._preview_multiple_files(target_paths, context.observations),
@@ -94,6 +147,11 @@ class FakeLLM:
 
     def _tool_available(self, context: AgentContext, tool_name: str) -> bool:
         return any(tool.name == tool_name for tool in context.available_tools)
+
+    def _source_target_paths(self, target_paths: list[str], write_target: str | None) -> list[str]:
+        if write_target is None:
+            return target_paths
+        return [target_path for target_path in target_paths if target_path != write_target]
 
     def _find_latest_observation(
         self,
@@ -168,3 +226,58 @@ class FakeLLM:
             return f"{target_path} 是一个空文件，没有可总结的内容。"
         preview = "；".join(lines[:3])
         return f"{target_path} 的主要内容：{preview}"
+
+    def _has_write_intent(self, user_goal: str) -> bool:
+        normalized = user_goal.lower()
+        return any(verb in normalized for verb in WRITE_VERBS)
+
+    def _extract_write_target(self, user_goal: str) -> str | None:
+        if not self._has_write_intent(user_goal):
+            return None
+        target_paths = self._extract_target_paths(user_goal)
+        for target_path in target_paths:
+            write_verb_positions = [
+                user_goal.lower().find(verb) for verb in WRITE_VERBS
+            ]
+            path_pos = user_goal.lower().find(target_path.lower())
+            if any(
+                pos >= 0 and path_pos > pos
+                for pos in write_verb_positions
+            ):
+                return target_path
+        if target_paths:
+            return target_paths[0]
+        return None
+
+    def _read_paths_from_observations(self, observations: list[Observation]) -> list[str]:
+        paths: list[str] = []
+        for obs in observations:
+            if obs.tool_name == "read_file" and obs.result.success:
+                path = obs.args.get("path")
+                if isinstance(path, str) and path not in paths:
+                    paths.append(path)
+        return paths
+
+    def _find_write_observation(
+        self,
+        observations: list[Observation],
+        target_path: str,
+    ) -> Observation | None:
+        for obs in reversed(observations):
+            if obs.tool_name == "write_file" and obs.args.get("path") == target_path:
+                return obs
+        return None
+
+    def _build_write_content(
+        self,
+        target_paths: list[str],
+        observations: list[Observation],
+    ) -> str:
+        sections: list[str] = ["# Summary\n"]
+        for target_path in target_paths:
+            obs = self._find_latest_read_observation(observations, target_path)
+            if obs and obs.result.success:
+                lines = [line.strip() for line in obs.result.content.splitlines() if line.strip()]
+                preview = " ".join(lines[:3])
+                sections.append(f"## {target_path}\n{preview}\n")
+        return "\n".join(sections)

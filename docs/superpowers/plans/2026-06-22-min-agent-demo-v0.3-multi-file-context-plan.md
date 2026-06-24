@@ -1,10 +1,10 @@
-# Min Agent Demo V3 Multi-File Context Implementation Plan
+# Min Agent Demo V0.3 Multi-File Context Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let the demo Agent inspect a workspace directory, choose relevant Markdown files, read multiple files, and synthesize an answer while staying fully read-only.
 
-**Architecture:** V3 adds one new safe local tool, `list_dir`, and updates the decision models so the loop can discover context before reading files. `AgentLoop` remains generic: it only records context, asks the decision model for an `AgentAction`, dispatches tool calls through `ToolRegistry`, stores observations, and repeats. DeepSeek and FakeLLM still only choose local actions; all file access remains inside the configured workspace.
+**Architecture:** V0.3 adds one new safe local tool, `list_dir`, and updates the decision models so the loop can discover context before reading files. `AgentLoop` remains generic: it only records context, asks the decision model for an `AgentAction`, dispatches tool calls through `ToolRegistry`, stores observations, and repeats. DeepSeek and FakeLLM still only choose local actions; all file access remains inside the configured workspace.
 
 **Tech Stack:** Python 3.10+ standard library, `pathlib`, `json`, `unittest`, existing `ToolRegistry`, existing `AgentLoop`, existing DeepSeek JSON action contract, vanilla Trace Viewer.
 
@@ -16,12 +16,12 @@
 
 - Add a read-only `list_dir` workspace tool.
 - Register `list_dir` in CLI next to `read_file`.
-- Make `FakeLLM` demonstrate V3 without a real model:
+- Make `FakeLLM` demonstrate V0.3 without a real model:
   - If the user goal does not name a specific Markdown file, call `list_dir`.
   - Read relevant Markdown files returned by `list_dir`.
   - Produce a final answer from multiple successful `read_file` observations.
 - Update `DeepSeekLLM` system prompt so the model can choose either `list_dir` or `read_file`.
-- Expand examples so V3 has multiple files to discover and summarize.
+- Expand examples so V0.3 has multiple files to discover and summarize.
 - Update docs and tests.
 - Keep Trace Viewer read-only and compatible with the existing event stream.
 
@@ -39,7 +39,7 @@
 
 ### Product Boundary
 
-V3 should teach this Agent path:
+V0.3 should teach this Agent path:
 
 ```text
 Goal -> Context -> Model / Reasoning -> Tools(list_dir) -> Memory / State
@@ -47,7 +47,7 @@ Goal -> Context -> Model / Reasoning -> Tools(list_dir) -> Memory / State
      -> Model / Reasoning -> final answer
 ```
 
-V3 is not trying to be Claude Code. It is showing how an Agent discovers local context before choosing which read-only tools to call.
+V0.3 is not trying to be Claude Code. It is showing how an Agent discovers local context before choosing which read-only tools to call.
 
 ---
 
@@ -90,15 +90,15 @@ web/trace_viewer.css
 web/trace_viewer.js
 ```
 
-The viewer should already display new tool events because it renders the shared `TraceEvent` stream. Only touch viewer files if a test proves the current viewer cannot show V3 events.
+The viewer should already display new tool events because it renders the shared `TraceEvent` stream. Only touch viewer files if a test proves the current viewer cannot show V0.3 events.
 
 ---
 
 ## 2. Behavioral Design
 
-### V3 Demo Command
+### V0.3 Demo Command
 
-Default fake mode should demonstrate V3 without a real API key:
+Default fake mode should demonstrate V0.3 without a real API key:
 
 ```bash
 PYTHONPATH=src python3 -m min_agent.cli \
@@ -130,7 +130,7 @@ PYTHONPATH=src python3 -m min_agent.cli \
   --workspace examples/workspace
 ```
 
-Expected: the Agent may go directly to `read_file` for `notes.md`, preserving the V1/V2 path.
+Expected: the Agent may go directly to `read_file` for `notes.md`, preserving the V0.1/V0.2 path.
 
 ### `list_dir` Tool Contract
 
@@ -183,7 +183,7 @@ ToolResult(success=False, error="directory not found: missing")
 ToolResult(success=False, error="path is not a directory: notes.md")
 ```
 
-### FakeLLM V3 Decision Rules
+### FakeLLM V0.3 Decision Rules
 
 FakeLLM remains deterministic, but it must not become a step-number script. It should decide from `AgentContext` and `Observation`.
 
@@ -191,7 +191,7 @@ Rules:
 
 - If the user names one or more Markdown files, read those files.
 - If the user does not name a Markdown file, call `list_dir` once for `"."`.
-- If the user does not name a Markdown file and `list_dir` is unavailable, keep the V1/V2 failure behavior and ask for an explicit `.md` file path.
+- If the user does not name a Markdown file and `list_dir` is unavailable, keep the V0.1/V0.2 failure behavior and ask for an explicit `.md` file path.
 - After a successful `list_dir`, choose Markdown files from `metadata["entries"]`.
 - Read up to 3 Markdown files to keep the demo short.
 - If a planned file has no successful `read_file` observation, call `read_file`.
@@ -200,7 +200,7 @@ Rules:
 - If `list_dir` fails, return a failed final answer.
 - If no Markdown files are found, return a failed final answer explaining that no Markdown files were available.
 
-### DeepSeek V3 Decision Rules
+### DeepSeek V0.3 Decision Rules
 
 DeepSeek system prompt must allow two tools:
 
@@ -852,7 +852,7 @@ Checkpoint: do not commit unless the user explicitly asks for commits during exe
 
 ---
 
-### Task 4: Update DeepSeek Prompt For V3 Tools
+### Task 4: Update DeepSeek Prompt For V0.3 Tools
 
 **Files:**
 
@@ -948,7 +948,7 @@ Checkpoint: do not commit unless the user explicitly asks for commits during exe
 
 ---
 
-### Task 5: Add V3 Example Workspace Files
+### Task 5: Add V0.3 Example Workspace Files
 
 **Files:**
 
@@ -1033,7 +1033,7 @@ Checkpoint: do not commit unless the user explicitly asks for commits during exe
 
 ---
 
-### Task 6: Verify AgentLoop V3 End-To-End In Fake Mode
+### Task 6: Verify AgentLoop V0.3 End-To-End In Fake Mode
 
 **Files:**
 
@@ -1108,7 +1108,7 @@ Run:
 python3 -m unittest tests.test_agent_loop.AgentLoopTest.test_loop_can_discover_and_read_multiple_workspace_files
 ```
 
-Expected: pass after `list_dir`, CLI-style registration behavior, and FakeLLM V3 logic exist.
+Expected: pass after `list_dir`, CLI-style registration behavior, and FakeLLM V0.3 logic exist.
 
 - [ ] **Step 3: Run AgentLoop tests**
 
@@ -1133,20 +1133,20 @@ Checkpoint: do not commit unless the user explicitly asks for commits during exe
 - Modify: `README.md`
 - Modify: `docs/runbook.md`
 
-- [ ] **Step 1: Update `AGENTS.md` with V3 boundary**
+- [ ] **Step 1: Update `AGENTS.md` with V0.3 boundary**
 
-Add after the V2 boundary:
+Add after the V0.2 boundary:
 
 ```markdown
-## 第三版边界
+## V0.3 边界
 
-第三版在第二版基础上只增加：
+V0.3 在 V0.2 基础上只增加：
 
 - `list_dir` 只读目录工具
 - Agent 根据目录列表选择相关 Markdown 文件
 - 多文件读取和综合回答
 
-第三版仍然不做：
+V0.3 仍然不做：
 
 - 写 workspace 文件
 - 运行命令
@@ -1155,7 +1155,7 @@ Add after the V2 boundary:
 - MCP、Hook、插件系统
 - 多 Agent
 
-## 第三版安全规则
+## V0.3 安全规则
 
 - `list_dir` 和 `read_file` 都只能访问指定 workspace 内路径。
 - `list_dir` 不递归扫描目录。
@@ -1164,18 +1164,18 @@ Add after the V2 boundary:
 - 工具执行仍必须通过 `ToolRegistry`。
 ```
 
-- [ ] **Step 2: Update `CHANGELOG.md` V3 section**
+- [ ] **Step 2: Update `CHANGELOG.md` V0.3 section**
 
-Replace the V3 candidate section with a completed V3 section near the top when implementation is done:
+Replace the V0.3 candidate section with a completed V0.3 section near the top when implementation is done:
 
 ```markdown
-## V3 - 多文件上下文读取
+## V0.3 - 多文件上下文读取
 
 状态：已完成
 
 这一版解决什么问题：
 
-V2 已经可以让真实模型判断下一步，但上下文仍主要来自单个文件。V3 让 Agent 可以先查看 workspace 目录，再选择相关 Markdown 文件读取并综合回答。
+V0.2 已经可以让真实模型判断下一步，但上下文仍主要来自单个文件。V0.3 让 Agent 可以先查看 workspace 目录，再选择相关 Markdown 文件读取并综合回答。
 
 使用者能感受到什么：
 
@@ -1199,16 +1199,16 @@ V2 已经可以让真实模型判断下一步，但上下文仍主要来自单�
 - 所有测试通过。
 ```
 
-Keep the later V4-V9 candidate sections below it.
+Keep the later V0.4-V0.9 candidate sections below it.
 
-- [ ] **Step 3: Update `README.md` V3 usage**
+- [ ] **Step 3: Update `README.md` V0.3 usage**
 
 Add:
 
 ````markdown
-## V3: 多文件上下文读取
+## V0.3: 多文件上下文读取
 
-V3 可以让 Agent 先查看 workspace 目录，再选择相关 Markdown 文件读取并综合回答。
+V0.3 可以让 Agent 先查看 workspace 目录，再选择相关 Markdown 文件读取并综合回答。
 
 运行：
 
@@ -1221,12 +1221,12 @@ PYTHONPATH=src python3 -m min_agent.cli \
 这一版仍然只读 workspace 文件，不写文件，不运行命令。
 ````
 
-- [ ] **Step 4: Update `docs/runbook.md` V3 section**
+- [ ] **Step 4: Update `docs/runbook.md` V0.3 section**
 
 Add:
 
 ````markdown
-## V3 多文件上下文演示
+## V0.3 多文件上下文演示
 
 运行：
 
@@ -1250,10 +1250,10 @@ list_dir -> read_file -> read_file -> final_answer
 Run:
 
 ```bash
-rg -n "V3|list_dir|多文件|写 workspace|运行命令" AGENTS.md CHANGELOG.md README.md docs/runbook.md src/min_agent tests
+rg -n "V0.3|list_dir|多文件|写 workspace|运行命令" AGENTS.md CHANGELOG.md README.md docs/runbook.md src/min_agent tests
 ```
 
-Expected: V3 references consistently say read-only, no write files, no command execution.
+Expected: V0.3 references consistently say read-only, no write files, no command execution.
 
 Checkpoint: do not commit unless the user explicitly asks for commits during execution.
 
@@ -1287,7 +1287,7 @@ Expected: all tests pass.
 
 If sandbox blocks TraceServer tests with `Operation not permitted`, rerun the exact command with approval for local port binding and record that the sandbox failure was caused by localhost binding.
 
-- [ ] **Step 3: Run fake-mode V3 smoke test without browser**
+- [ ] **Step 3: Run fake-mode V0.3 smoke test without browser**
 
 Run:
 
@@ -1306,7 +1306,7 @@ Expected:
 - Output includes a final answer mentioning multiple demo files.
 - A run record path is printed.
 
-- [ ] **Step 4: Inspect latest run record for V3 phases**
+- [ ] **Step 4: Inspect latest run record for V0.3 phases**
 
 Open the run record printed in Step 3 and verify:
 
@@ -1336,7 +1336,7 @@ Checkpoint: do not commit unless the user explicitly asks for commits during exe
 
 ## 4. Self-Review Checklist
 
-- V3 maps to Agent modules as follows:
+- V0.3 maps to Agent modules as follows:
   - Goal: unchanged CLI input.
   - Context: stronger workspace context from directory listing.
   - Model / Reasoning: FakeLLM and DeepSeek choose `list_dir`, `read_file`, or `final_answer`.
@@ -1347,7 +1347,7 @@ Checkpoint: do not commit unless the user explicitly asks for commits during exe
   - Extension: not implemented.
 - No task writes files from the Agent runtime.
 - No task runs shell commands from the Agent runtime.
-- `AgentLoop` remains generic and does not hardcode V3 steps.
+- `AgentLoop` remains generic and does not hardcode V0.3 steps.
 - Tool execution remains local through `ToolRegistry`.
 - `TraceEvent` structure remains unchanged.
 - Tests are written before implementation in each task.
@@ -1361,5 +1361,5 @@ Plan complete. Recommended execution mode:
 
 1. Use subagent-driven development for Tasks 1-7, one task at a time.
 2. Review diffs after each task.
-3. Run Task 8 verification before claiming V3 complete.
+3. Run Task 8 verification before claiming V0.3 complete.
 4. Commit only after user confirmation, following the project rule in `AGENTS.md`.

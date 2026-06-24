@@ -187,5 +187,84 @@ class DeepSeekLLMTest(unittest.TestCase):
         self.assertEqual(model_call["response"]["content"], raw_content)
 
 
+    def test_system_prompt_includes_write_file(self) -> None:
+        from min_agent.deepseek_llm import DeepSeekLLM
+
+        llm = DeepSeekLLM(
+            client=StubClient('{"kind":"final_answer","message":"ok","reason":"done","success":true}'),
+            model="deepseek-v4-flash",
+        )
+
+        system_prompt = llm._system_prompt()
+
+        self.assertIn('"tool_name": "write_file"', system_prompt)
+        self.assertIn('"mode": "create"', system_prompt)
+
+    def test_system_prompt_says_model_only_proposes_action(self) -> None:
+        from min_agent.deepseek_llm import DeepSeekLLM
+
+        llm = DeepSeekLLM(
+            client=StubClient('{"kind":"final_answer","message":"ok","reason":"done","success":true}'),
+            model="deepseek-v4-flash",
+        )
+
+        system_prompt = llm._system_prompt()
+
+        self.assertIn("only propose", system_prompt.lower())
+
+    def test_parses_write_file_action(self) -> None:
+        from min_agent.deepseek_llm import DeepSeekLLM
+        from min_agent.types import AgentContext, ToolSpec
+
+        llm = DeepSeekLLM(
+            client=StubClient(
+                '{"kind":"tool_call","tool_name":"write_file","args":{"path":"summary.md","content":"hello","mode":"create"},"reason":"save summary"}'
+            ),
+            model="deepseek-v4-flash",
+        )
+        context = AgentContext(
+            user_goal="请生成 summary.md",
+            workspace="examples/workspace",
+            available_tools=[
+                ToolSpec(name="read_file", description="Read file"),
+                ToolSpec(name="write_file", description="Write file"),
+            ],
+            observations=[],
+        )
+
+        action = llm.decide(context)
+
+        self.assertEqual(action.kind, "tool_call")
+        self.assertEqual(action.tool_name, "write_file")
+        self.assertEqual(action.args["path"], "summary.md")
+        self.assertEqual(action.args["content"], "hello")
+
+    def test_unknown_write_like_action_rejected(self) -> None:
+        from min_agent.deepseek_llm import DeepSeekLLM
+        from min_agent.types import AgentContext, ToolSpec
+
+        llm = DeepSeekLLM(
+            client=StubClient(
+                '{"kind":"tool_call","tool_name":"create_file","args":{"path":"summary.md"},"reason":"create"}'
+            ),
+            model="deepseek-v4-flash",
+        )
+        context = AgentContext(
+            user_goal="请创建文件",
+            workspace="examples/workspace",
+            available_tools=[
+                ToolSpec(name="read_file", description="Read file"),
+                ToolSpec(name="write_file", description="Write file"),
+            ],
+            observations=[],
+        )
+
+        action = llm.decide(context)
+
+        self.assertEqual(action.kind, "final_answer")
+        self.assertFalse(action.success)
+        self.assertIn("不可用工具", action.message or "")
+
+
 if __name__ == "__main__":
     unittest.main()

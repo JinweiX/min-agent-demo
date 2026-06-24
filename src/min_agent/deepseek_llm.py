@@ -121,6 +121,12 @@ Do not invent tools.
 Only choose tools listed in the user prompt.
 Use list_dir when you need to inspect available workspace files.
 Use read_file when you need file content before answering.
+Use write_file only when the user explicitly asks to create, write, save, or generate a file.
+write_file can only create a new text file inside the workspace.
+Do not request .env files.
+Do not request workspace-external paths.
+Do not request overwrite of existing files.
+You only propose the action; local permission and tools decide execution.
 
 Allowed json outputs:
 {
@@ -135,6 +141,13 @@ Allowed json outputs:
   "tool_name": "read_file",
   "args": {"path": "notes.md"},
   "reason": "Need file content before answering"
+}
+
+{
+  "kind": "tool_call",
+  "tool_name": "write_file",
+  "args": {"path": "summary.md", "content": "content text", "mode": "create"},
+  "reason": "Need to save the synthesized summary to a new workspace file"
 }
 
 {

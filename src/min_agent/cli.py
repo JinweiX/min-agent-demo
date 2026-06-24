@@ -14,7 +14,7 @@ from min_agent.deepseek_client import DeepSeekClient
 from min_agent.deepseek_llm import DeepSeekLLM
 from min_agent.fake_llm import FakeLLM
 from min_agent.tool_registry import ToolRegistry
-from min_agent.tools.workspace import ensure_workspace, list_dir, read_file
+from min_agent.tools.workspace import ensure_workspace, list_dir, read_file, write_file
 from min_agent.trace_recorder import TraceRecorder
 from min_agent.trace_server import TraceServer
 from min_agent.types import ToolSpec
@@ -94,7 +94,35 @@ def build_tool_registry(workspace: Path) -> ToolRegistry:
         ),
         lambda tool_args: list_dir(workspace, tool_args),
     )
+    registry.register(
+        ToolSpec(
+            name="write_file",
+            description="Create a new UTF-8 text file inside the configured workspace after approval.",
+            args_schema={"path": "string", "content": "string", "mode": "string"},
+            requires_permission=True,
+        ),
+        lambda tool_args: write_file(workspace, tool_args),
+    )
     return registry
+
+
+def preview_text(value: str, limit: int = 200) -> str:
+    return value if len(value) <= limit else value[:limit] + "..."
+
+
+def confirm_tool_call(tool_name: str, args: dict[str, object], reason: str) -> bool:
+    print()
+    print(f"Permission required: {tool_name}")
+    if "path" in args:
+        print(f"Path: {args['path']}")
+    print(f"Reason: {reason}")
+    content = args.get("content")
+    if isinstance(content, str) and content:
+        print("Preview:")
+        print(preview_text(content))
+    print()
+    answer = input("Approve? [y/N] ")
+    return answer.strip().lower() == "y"
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -146,6 +174,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             recorder=recorder,
             workspace=str(workspace),
             step_delay_seconds=args.step_delay,
+            permission_callback=lambda action: confirm_tool_call(
+                action.tool_name or "unknown",
+                action.args,
+                action.reason,
+            ),
         )
         result = loop.run(args.goal)
         record_path = recorder.save(args.runs_dir, status="completed" if result.success else "failed")

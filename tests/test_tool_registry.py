@@ -66,5 +66,50 @@ class ToolRegistryTest(unittest.TestCase):
         self.assertIn("tool fail failed", result.error or "")
 
 
+    def test_get_spec_returns_spec_for_known_tool(self) -> None:
+        from min_agent.tool_registry import ToolRegistry
+        from min_agent.types import ToolSpec
+
+        registry = ToolRegistry()
+        registry.register(
+            ToolSpec(name="read_file", description="Read file", requires_permission=False),
+            lambda args: None,
+        )
+
+        spec = registry.get_spec("read_file")
+
+        self.assertIsNotNone(spec)
+        self.assertEqual(spec.name, "read_file")
+        self.assertFalse(spec.requires_permission)
+
+    def test_get_spec_returns_none_for_unknown_tool(self) -> None:
+        from min_agent.tool_registry import ToolRegistry
+
+        registry = ToolRegistry()
+        spec = registry.get_spec("missing")
+
+        self.assertIsNone(spec)
+
+    def test_get_spec_does_not_change_register_list_or_call(self) -> None:
+        from min_agent.tool_registry import ToolRegistry
+        from min_agent.types import ToolResult, ToolSpec
+
+        registry = ToolRegistry()
+        registry.register(
+            ToolSpec(name="echo", description="Echo", requires_permission=True),
+            lambda args: ToolResult(success=True, content=args.get("text", "")),
+        )
+
+        spec = registry.get_spec("echo")
+        self.assertTrue(spec.requires_permission)
+
+        specs = registry.list_specs()
+        self.assertEqual(len(specs), 1)
+
+        result = registry.call("echo", {"text": "hello"})
+        self.assertTrue(result.success)
+        self.assertEqual(result.content, "hello")
+
+
 if __name__ == "__main__":
     unittest.main()

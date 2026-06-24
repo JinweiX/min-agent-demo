@@ -2,13 +2,13 @@
 
 一个可观察的最小 Agent 机制 demo。
 
-第一版目标不是做生产工具，也不是接入真实大模型，而是验证 Agent 的最小闭环：
+V0.1 目标不是做生产工具，也不是接入真实大模型，而是验证 Agent 的最小闭环：
 
 ```text
 目标输入 -> 判断下一步 -> 调用工具 -> 获得结果 -> 更新判断 -> 输出答案
 ```
 
-## 第一版能力
+## V0.1 能力
 
 - CLI 启动入口
 - 示例 workspace
@@ -22,11 +22,11 @@
 - JSON 运行记录保存
 - 最小单元测试
 
-第一版不接真实模型 SDK，不读取 API key，不创建 `.env`，不提供写 workspace 文件的工具，不运行命令。
+V0.1 不接真实模型 SDK，不读取 API key，不创建 `.env`，不提供写 workspace 文件的工具，不运行命令。
 
-## V2: DeepSeek 决策器
+## V0.2: DeepSeek 决策器
 
-V2 可以把默认的 `FakeLLM` 替换为 DeepSeek 真实模型决策器，但工具执行仍由本地 `ToolRegistry` 控制。
+V0.2 可以把默认的 `FakeLLM` 替换为 DeepSeek 真实模型决策器，但工具执行仍由本地 `ToolRegistry` 控制。
 
 DeepSeek 模式使用环境变量：
 
@@ -44,9 +44,9 @@ DEEPSEEK_API_KEY=... PYTHONPATH=src python3 -m min_agent.cli \
   --deepseek-model deepseek-v4-flash
 ```
 
-## V3: 多文件上下文读取
+## V0.3: 多文件上下文读取
 
-V3 可以让 Agent 先查看 workspace 目录，再选择相关 Markdown 文件读取并综合回答。
+V0.3 可以让 Agent 先查看 workspace 目录，再选择相关 Markdown 文件读取并综合回答。
 
 运行：
 
@@ -58,11 +58,37 @@ PYTHONPATH=src python3 -m min_agent.cli \
 
 这一版仍然只读 workspace 文件，不写文件，不运行命令。
 
-## V4: 轮次化 Trace Viewer
+## V0.4: 轮次化 Trace Viewer
 
-V4 改进了浏览器观察窗口的可理解性。页面顶部会展示本次任务的执行统计、用户输入的原始需求和最终结果；下方观察窗口按 Agentic Loop 轮次组织执行过程，每一轮内部继续保留具体步骤、输入、输出和原始事件 JSON。
+V0.4 改进了浏览器观察窗口的可理解性。页面顶部会展示本次任务的执行统计、用户输入的原始需求和最终结果；下方观察窗口按 Agentic Loop 轮次组织执行过程，每一轮内部继续保留具体步骤、输入、输出和原始事件 JSON。
 
 DeepSeek 模式下，模型决策步骤会展示发送给模型的 System Prompt、User Prompt、模型返回的 `message.content`，以及解析后的本地 `AgentAction`。FakeLLM 模式下，页面会明确说明没有调用真实大模型。
+
+## V0.5: 可控写文件权限
+
+V0.5 让 Agent 可以在用户明确批准后，把综合结果写入 workspace 内的新文本文件。
+
+运行写文件 demo：
+
+```bash
+PYTHONPATH=src python3 -m min_agent.cli \
+  "请阅读这个工作区里的资料，并生成 summary.md" \
+  --workspace examples/workspace
+```
+
+CLI 会在 Agent 提出写文件请求时显示权限确认提示：
+
+```text
+Permission required: write_file
+Path: summary.md
+Reason: 已读取所需文件，需要把综合总结写入 summary.md
+Preview:
+<content preview>
+
+Approve? [y/N]
+```
+
+输入 `y` 批准写入，输入 `n` 或直接回车拒绝。批准后文件写入 workspace；拒绝后 Agent 会说明文件未被创建。
 
 ## 运行 demo
 
