@@ -82,6 +82,56 @@ git status --short
 
 如果 demo 生成了临时运行产物，例如 `examples/workspace/summary.md`、截图或 Playwright MCP 日志，按任务约定决定是否保留。删除文件或目录前仍需遵守用户的删除确认规则。
 
+## 版本管理流程
+
+本项目使用线性版本分支流程。
+
+### 开始新版本
+
+从最新 `main` 创建版本分支：
+
+```bash
+git checkout main
+git pull --ff-only origin main
+git checkout -b codex/min-agent-demo-v0.6
+git push -u origin codex/min-agent-demo-v0.6
+```
+
+分支命名统一使用 `codex/min-agent-demo-v0.x`。
+
+### 完成当前版本
+
+1. 在版本分支完成实现、测试、浏览器验收和文档收尾。
+2. 运行标准验证流程。
+3. 在最终验收完成点打版本 tag，例如 `v0.6`。
+4. 推送版本分支和 tag。
+5. 快进合并到 `main`。
+6. 推送 `main`。
+7. 从最新 `main` 创建下一个版本分支。
+
+推荐命令：
+
+```bash
+git status --short
+python3 -m unittest discover -s tests
+git tag v0.6
+git push origin codex/min-agent-demo-v0.6
+git push origin v0.6
+git checkout main
+git pull --ff-only origin main
+git merge --ff-only codex/min-agent-demo-v0.6
+python3 -m unittest discover -s tests
+git push origin main
+git checkout -b codex/min-agent-demo-v0.7
+git push -u origin codex/min-agent-demo-v0.7
+```
+
+### 清理旧分支
+
+版本分支合并后可以保留一段时间用于对比。确认不再需要后，再删除旧分支。
+
+删除分支属于破坏性操作，执行前必须得到用户明确确认。
+
 ## 验证命令
 
 ```bash

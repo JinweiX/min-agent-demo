@@ -19,3 +19,6 @@ Thumbs.db
 
 # Runs — keep directory, ignore generated records
 runs/*.json
+
+# Demo workspace generated files
+examples/workspace/summary.md
