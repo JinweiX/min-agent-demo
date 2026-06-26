@@ -1,0 +1,58 @@
+from __future__ import annotations
+
+import unittest
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class ProjectTestingRulesTest(unittest.TestCase):
+    def test_agents_documents_testing_layers_and_browser_acceptance_boundary(self) -> None:
+        content = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+
+        expected_tokens = [
+            "## 测试与验收规则",
+            "机制单元测试",
+            "Agent 场景测试",
+            "浏览器验收",
+            "源码结构防退化测试",
+            "browser manual smoke: PASS",
+            "不能用源码检查替代",
+        ]
+        for token in expected_tokens:
+            self.assertIn(token, content)
+
+    def test_runbook_documents_standard_verification_flow(self) -> None:
+        content = (ROOT / "docs" / "runbook.md").read_text(encoding="utf-8")
+
+        expected_tokens = [
+            "## 标准验证流程",
+            "机制单元测试",
+            "Agent 场景测试",
+            "浏览器验收",
+            "工作区清理",
+            "browser manual smoke: PASS",
+            "browser manual smoke: NOT RUN",
+        ]
+        for token in expected_tokens:
+            self.assertIn(token, content)
+
+    def test_development_plan_rules_require_testing_acceptance_matrix(self) -> None:
+        content = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+
+        expected_tokens = [
+            "### 开发计划必须包含测试验收矩阵",
+            "每份开发计划必须列出",
+            "run record 里必须出现什么事件链",
+            "哪些工具必须出现，哪些工具不能出现",
+            "不能把源码检查写成 `browser manual smoke: PASS`",
+            "不合格的测试计划示例",
+            "只写“运行测试”",
+        ]
+        for token in expected_tokens:
+            self.assertIn(token, content)
+
+
+if __name__ == "__main__":
+    unittest.main()

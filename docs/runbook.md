@@ -24,6 +24,64 @@ PYTHONPATH=src python3 -m min_agent.cli "请读取 notes.md 并总结" --workspa
 
 这个模式适合自动测试和快速验证。
 
+## 标准验证流程
+
+每次版本开发后的验证按下面顺序执行，除非本次改动完全不涉及对应层。跳过某一层时，要在交付说明里写明 `NOT RUN` 和原因。
+
+### 1. 机制单元测试
+
+运行：
+
+```bash
+python3 -m unittest discover -s tests
+```
+
+这一层验证模块边界和架构红线，包括 workspace 安全、ToolRegistry 调用、模型失败收敛、权限确认和 TraceEvent 结构。
+
+### 2. Agent 场景测试
+
+场景测试通过 CLI 跑完整任务，再读取 run record 验证关键事件链。它重点确认用户目标真的经过了 Agent Loop，而不是只验证单个函数。
+
+当前自动化场景覆盖：
+
+- 多文件总结会先 `list_dir`，再 `read_file`，最后产生 `final_answer`。
+- 写文件批准会先出现 `permission_requested` 和 `permission_resolved`，再执行 `tool_started(write_file)`。
+- 写文件拒绝不会执行 `tool_started(write_file)`，run record 状态为 `failed`。
+
+### 3. 浏览器验收
+
+Trace Viewer 或页面结构相关改动必须做真实浏览器验收。`tests/test_trace_viewer_source.py` 只是源码结构防退化测试，不能用源码检查替代浏览器验收。
+
+验收至少确认：
+
+- 页面不是空白。
+- 顶部统计、原始需求、最终结果和观察窗口顺序正确。
+- 轮次列表可以点击，详情区域会更新。
+- 权限申请、用户决策和工具执行能按事件顺序展示。
+- 浏览器 console 没有 JavaScript error。
+
+能完成真实浏览器验收时，在交付说明中写：
+
+```text
+browser manual smoke: PASS
+```
+
+没有执行真实浏览器验收时，只能写：
+
+```text
+browser manual smoke: NOT RUN - <原因>
+```
+
+### 4. 工作区清理
+
+验证结束后检查工作区：
+
+```bash
+git status --short
+```
+
+如果 demo 生成了临时运行产物，例如 `examples/workspace/summary.md`、截图或 Playwright MCP 日志，按任务约定决定是否保留。删除文件或目录前仍需遵守用户的删除确认规则。
+
 ## 验证命令
 
 ```bash

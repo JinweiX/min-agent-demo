@@ -135,6 +135,16 @@ class TraceViewerSourceTest(unittest.TestCase):
         self.assertIn(".flow-overview", css)
         self.assertIn(".flow-node", css)
 
+    def test_task_entry_nav_uses_entry_marker_not_raw_event_step(self) -> None:
+        source = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
+
+        self.assertIn('roundIndex.textContent = "起"', source)
+
+        entry_start = source.index("function renderTaskEntryItem")
+        entry_end = source.index("function renderTaskCompletionItem", entry_start)
+        entry_body = source[entry_start:entry_end]
+        self.assertNotIn("roundIndex.textContent = String(event.step)", entry_body)
+
     def test_v0_4_viewer_explains_task_completion_separately(self) -> None:
         css = (ROOT / "web" / "trace_viewer.css").read_text(encoding="utf-8")
         source = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
@@ -148,6 +158,19 @@ class TraceViewerSourceTest(unittest.TestCase):
         self.assertIn("run_failed", source)
         self.assertIn("task-completion", source)
         self.assertIn(".task-completion", css)
+
+    def test_task_completion_nav_uses_display_index_not_raw_event_step(self) -> None:
+        source = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
+
+        self.assertIn("const completionDisplayIndex = rounds.length + 1", source)
+        self.assertIn("renderTaskCompletionItem(roundList, completion, completionDisplayIndex)", source)
+        self.assertIn("function renderTaskCompletionItem(roundList, event, displayIndex)", source)
+        self.assertIn("roundIndex.textContent = String(displayIndex)", source)
+
+        completion_start = source.index("function renderTaskCompletionItem")
+        completion_end = source.index("function renderRoundDetail", completion_start)
+        completion_body = source[completion_start:completion_end]
+        self.assertNotIn("roundIndex.textContent = String(event.step)", completion_body)
 
 
     def test_v0_5_viewer_handles_permission_phases(self) -> None:

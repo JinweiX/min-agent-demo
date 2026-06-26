@@ -268,7 +268,8 @@ function renderRoundList() {
   }
 
   if (completion) {
-    renderTaskCompletionItem(roundList, completion);
+    const completionDisplayIndex = rounds.length + 1;
+    renderTaskCompletionItem(roundList, completion, completionDisplayIndex);
   }
 }
 
@@ -284,7 +285,7 @@ function renderTaskEntryItem(roundList, event) {
 
   const roundIndex = document.createElement("span");
   roundIndex.className = "round-index";
-  roundIndex.textContent = String(event.step);
+  roundIndex.textContent = "起";
 
   const content = document.createElement("span");
   content.className = "round-content";
@@ -325,7 +326,7 @@ function renderTaskEntryItem(roundList, event) {
   roundList.append(item);
 }
 
-function renderTaskCompletionItem(roundList, event) {
+function renderTaskCompletionItem(roundList, event, displayIndex) {
   const item = document.createElement("li");
   item.className = "task-completion";
   if (state.selectedRoundId === "task-completion") {
@@ -337,7 +338,7 @@ function renderTaskCompletionItem(roundList, event) {
 
   const roundIndex = document.createElement("span");
   roundIndex.className = "round-index";
-  roundIndex.textContent = String(event.step);
+  roundIndex.textContent = String(displayIndex);
 
   const content = document.createElement("span");
   content.className = "round-content";

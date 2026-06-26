@@ -262,6 +262,55 @@ Trace Viewer 是只读观察窗口。
 
 V0.1 不引入前端框架。
 
+## 测试与验收规则
+
+本项目的测试不是为了追求覆盖率数字，而是为了把 Agent demo 的产品边界变成可重复验证的约束。每个版本计划必须说明本次改动对应哪一层测试和验收。
+
+### 机制单元测试
+
+机制单元测试用于验证单个模块是否守住架构红线，例如：
+
+- workspace 工具不能越界访问文件。
+- `AgentLoop` 必须通过 `ToolRegistry` 调用工具。
+- `FakeLLM` 必须根据上下文和 observation 决策，不能靠固定 step number 推进。
+- DeepSeek 失败、空内容、非法 JSON 必须收敛成可观察失败。
+- `write_file` 等危险工具必须先产生权限确认。
+
+这层测试使用标准库 `unittest`，默认验证命令仍然是：
+
+```bash
+python3 -m unittest discover -s tests
+```
+
+### Agent 场景测试
+
+Agent 场景测试用于验证一个用户目标跑完整 CLI 后，run record 中出现正确的机制路径。它不要求每个自然语言字面完全一致，但必须约束关键事件链和工具边界。
+
+典型场景包括：
+
+- 多文件总结：`list_dir -> read_file -> observation_added -> final_answer`。
+- 写文件批准：`permission_requested -> permission_resolved(approved=True) -> tool_started(write_file)`。
+- 写文件拒绝：`permission_resolved(approved=False)` 后不能出现 `tool_started(write_file)`。
+- 启动配置错误和 Agent 任务失败必须能区分退出码和 run record 状态。
+
+新增能力时，优先补 Agent 场景测试，避免只测函数却漏掉真实用户路径。
+
+### 浏览器验收
+
+Trace Viewer 相关改动必须做浏览器验收。源码结构防退化测试只能防止关键 DOM、class、函数或文案被误删，不能证明页面真实可用。
+
+`tests/test_trace_viewer_source.py` 属于源码结构防退化测试，不等于浏览器验收。
+
+`browser manual smoke: PASS` 必须来自真实浏览器或等价运行环境验证，不能用源码检查替代。至少确认：
+
+- 页面真实渲染不是空白。
+- 关键模块顺序正确。
+- 主要交互可以操作。
+- 状态切换后详情区域正确更新。
+- 浏览器 console 没有 JavaScript error。
+
+如果当次没有能力做真实浏览器验收，只能写 `browser manual smoke: NOT RUN`，并说明原因。
+
 ## 外部执行模型开发指引规则
 
 当 Codex 输出开发计划，并交给 DeepSeek 或其他外部执行模型实现时，计划必须降低“货不对板”的风险。
@@ -280,6 +329,36 @@ V0.1 不引入前端框架。
 - 不允许退化成什么样子
 
 “不追求视觉效果”只能理解为“不做炫技、不做装饰性设计”，不能理解为“随便摆出来即可”。信息层级、可理解性、阅读路径仍然是验收项。
+
+### 开发计划必须包含测试验收矩阵
+
+每份开发计划必须列出测试验收矩阵，不能只写“运行测试”或“确保功能可用”。矩阵至少包含：
+
+1. 机制单元测试
+   - 新增或修改哪些 `unittest`。
+   - 验证哪个架构红线、模块边界或失败收敛路径。
+
+2. Agent 场景测试
+   - 用什么用户目标跑完整 CLI。
+   - run record 里必须出现什么事件链。
+   - 哪些工具必须出现，哪些工具不能出现。
+
+3. 浏览器验收
+   - 本次是否涉及 Trace Viewer 或页面结构。
+   - 如果涉及，必须说明真实浏览器验收点。
+   - 不能把源码检查写成 `browser manual smoke: PASS`。
+
+4. 工作区清理
+   - 会生成哪些临时产物。
+   - 哪些产物要保留，哪些要清理。
+   - 清理动作是否需要用户确认。
+
+不合格的测试计划示例：
+
+- 只写“运行测试”。
+- 只写“确保页面正常”。
+- 只写“检查功能可用”。
+- 写了 `browser manual smoke: PASS`，但实际只检查 HTML/CSS/JS 源码。
 
 ### 原型和截图必须入库
 
