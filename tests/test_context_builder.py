@@ -34,5 +34,95 @@ class ContextBuilderTest(unittest.TestCase):
         self.assertEqual(context.observations[0].result.content, "hello")
 
 
+    def test_build_context_contains_all_v06_fields(self) -> None:
+        from min_agent.context_builder import ContextBuilder
+        from min_agent.types import Observation, ToolResult, ToolSpec
+
+        builder = ContextBuilder()
+        observation = Observation(
+            tool_name="read_file",
+            args={"path": "notes.md"},
+            result=ToolResult(success=True, content="hello"),
+        )
+
+        context = builder.build(
+            user_goal="请读取 notes.md 并总结",
+            workspace="examples/workspace",
+            available_tools=[ToolSpec(name="read_file", description="Read file")],
+            observations=[observation],
+            selected_project_content=["notes.md"],
+            run_id="test-run",
+            started_at="2026-06-30T10:00:00+08:00",
+        )
+
+        self.assertEqual(context.selected_project_content, ["notes.md"])
+        # Without ContextLoader, V0.6 fields should be None/empty
+        self.assertIsNone(context.run_metadata)
+        self.assertIsNone(context.workspace_config)
+        self.assertIsNone(context.run_memory)
+        self.assertEqual(context.tool_catalog, [])
+
+    def test_base_context_loaded_only_once(self) -> None:
+        from min_agent.context_builder import ContextBuilder
+        from min_agent.context_loader import ContextLoader
+        from min_agent.types import Observation, ToolResult, ToolSpec
+
+        with __import__("tempfile").TemporaryDirectory() as tmp:
+            workspace = Path(tmp) / "ws"
+            workspace.mkdir()
+            runs_dir = Path(tmp) / "runs"
+            runs_dir.mkdir()
+            (workspace / "minagent.md").write_text("rule", encoding="utf-8")
+
+            loader = ContextLoader(workspace=str(workspace), runs_dir=str(runs_dir), decision_model="fake")
+            observation = Observation(
+                tool_name="read_file",
+                args={"path": "notes.md"},
+                result=ToolResult(success=True, content="hello"),
+            )
+
+            builder = ContextBuilder(context_loader=loader)
+            context1 = builder.build(
+                user_goal="goal",
+                workspace=str(workspace),
+                available_tools=[ToolSpec(name="read_file", description="Read")],
+                observations=[],
+                run_id="r1",
+                started_at="2026-06-30T10:00:00+08:00",
+            )
+            # Should have loaded workspace_config
+            self.assertIsNotNone(context1.workspace_config)
+            self.assertEqual(context1.workspace_config.status, "loaded")
+
+            context2 = builder.build(
+                user_goal="goal",
+                workspace=str(workspace),
+                available_tools=[ToolSpec(name="read_file", description="Read")],
+                observations=[observation],
+                run_id="r1",
+                started_at="2026-06-30T10:00:00+08:00",
+            )
+            # Second call should still have the same workspace config
+            self.assertEqual(context2.workspace_config.status, "loaded")
+
+    def test_selected_project_content_passed_through(self) -> None:
+        from min_agent.context_builder import ContextBuilder
+        from min_agent.types import Observation, ToolResult, ToolSpec
+
+        builder = ContextBuilder()
+        context = builder.build(
+            user_goal="goal",
+            workspace="ws",
+            available_tools=[],
+            observations=[],
+            selected_project_content=["a.md", "b.md"],
+        )
+
+        self.assertEqual(
+            context.selected_project_content,
+            ["a.md", "b.md"],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

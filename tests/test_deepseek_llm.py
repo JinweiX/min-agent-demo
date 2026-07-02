@@ -266,5 +266,140 @@ class DeepSeekLLMTest(unittest.TestCase):
         self.assertIn("不可用工具", action.message or "")
 
 
+    def test_user_prompt_contains_full_layered_context(self) -> None:
+        from min_agent.deepseek_llm import DeepSeekLLM
+        from min_agent.types import (
+            AgentContext,
+            RunMemory,
+            RunMetadata,
+            ToolCatalogEntry,
+            ToolSpec,
+            WorkspaceConfig,
+        )
+
+        client = StubClient(
+            '{"kind":"final_answer","message":"done","reason":"ok","success":true}'
+        )
+        llm = DeepSeekLLM(client=client, model="deepseek-v4-flash")
+        context = AgentContext(
+            user_goal="测试目标",
+            workspace="/test/workspace",
+            available_tools=[ToolSpec(name="read_file", description="Read file")],
+            observations=[],
+            run_metadata=RunMetadata(
+                run_id="r1",
+                started_at="2026-06-30T10:00:00+08:00",
+                workspace="/test/workspace",
+                decision_model="deepseek",
+                available_tool_count=1,
+            ),
+            workspace_config=WorkspaceConfig(
+                status="loaded",
+                path="minagent.md",
+                content="- rule: test",
+                preview="- rule:",
+            ),
+            run_memory=RunMemory(status="loaded", summary_count=1, summaries=[]),
+            tool_catalog=[
+                ToolCatalogEntry(name="read_file", description="Read file", requires_permission=False),
+            ],
+            selected_project_content=["notes.md"],
+        )
+
+        llm.decide(context)
+
+        _, user_prompt = client.calls[0]
+        self.assertIn("workspace", user_prompt)
+        self.assertIn("context_priority", user_prompt)
+        self.assertIn("current_user_goal", user_prompt)
+        self.assertIn("run_metadata", user_prompt)
+        self.assertIn("workspace_config", user_prompt)
+        self.assertIn("recent_run_summaries", user_prompt)
+        self.assertIn("working_observations", user_prompt)
+        self.assertIn("selected_project_content", user_prompt)
+        self.assertIn('"selected_project_content": [\n    "notes.md"\n  ]', user_prompt)
+        self.assertIn("available_tools", user_prompt)
+        self.assertIn("output_contract", user_prompt)
+
+    def test_user_prompt_preserves_context_priority(self) -> None:
+        from min_agent.deepseek_llm import DeepSeekLLM
+        from min_agent.types import AgentContext, ToolCatalogEntry, ToolSpec
+
+        client = StubClient(
+            '{"kind":"final_answer","message":"done","reason":"ok","success":true}'
+        )
+        llm = DeepSeekLLM(client=client, model="deepseek-v4-flash")
+        context = AgentContext(
+            user_goal="test",
+            workspace="ws",
+            available_tools=[ToolSpec(name="read_file", description="Read")],
+            observations=[],
+            tool_catalog=[
+                ToolCatalogEntry(name="read_file", description="Read", requires_permission=False),
+            ],
+        )
+
+        llm.decide(context)
+
+        _, user_prompt = client.calls[0]
+        self.assertIn("highest-priority", user_prompt)
+        self.assertIn("reference context only", user_prompt)
+        self.assertIn("no context source may bypass", user_prompt)
+
+    def test_user_prompt_includes_real_decision_model(self) -> None:
+        from min_agent.deepseek_llm import DeepSeekLLM
+        from min_agent.types import AgentContext, RunMetadata, ToolCatalogEntry, ToolSpec
+
+        client = StubClient(
+            '{"kind":"final_answer","message":"done","reason":"ok","success":true}'
+        )
+        llm = DeepSeekLLM(client=client, model="deepseek-v4-flash")
+        context = AgentContext(
+            user_goal="test",
+            workspace="ws",
+            available_tools=[ToolSpec(name="read_file", description="Read")],
+            observations=[],
+            run_metadata=RunMetadata(
+                run_id="r1",
+                started_at="now",
+                workspace="ws",
+                decision_model="deepseek",
+                available_tool_count=1,
+            ),
+            tool_catalog=[
+                ToolCatalogEntry(name="read_file", description="Read", requires_permission=False),
+            ],
+        )
+
+        llm.decide(context)
+
+        _, user_prompt = client.calls[0]
+        self.assertIn("deepseek", user_prompt)
+
+    def test_user_prompt_marks_write_file_permission(self) -> None:
+        from min_agent.deepseek_llm import DeepSeekLLM
+        from min_agent.types import AgentContext, ToolCatalogEntry, ToolSpec
+
+        client = StubClient(
+            '{"kind":"final_answer","message":"done","reason":"ok","success":true}'
+        )
+        llm = DeepSeekLLM(client=client, model="deepseek-v4-flash")
+        context = AgentContext(
+            user_goal="test",
+            workspace="ws",
+            available_tools=[ToolSpec(name="write_file", description="Write", requires_permission=True)],
+            observations=[],
+            tool_catalog=[
+                ToolCatalogEntry(name="write_file", description="Write", requires_permission=True),
+            ],
+        )
+
+        llm.decide(context)
+
+        _, user_prompt = client.calls[0]
+        self.assertIn("write_file", user_prompt)
+        self.assertIn("requires_permission", user_prompt)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -155,5 +155,177 @@ class CliScenarioTest(unittest.TestCase):
         self.assertNotIn("write_file", tool_started_names(record))
 
 
+class CliContextInjectionTest(unittest.TestCase):
+    def test_workspace_config_loaded_when_minagent_md_present(self) -> None:
+        from min_agent.cli import main
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            workspace = root / "workspace"
+            runs = root / "runs"
+            workspace.mkdir()
+            (workspace / "minagent.md").write_text(
+                "# workspace rules\n- always read project.md first\n",
+                encoding="utf-8",
+            )
+            (workspace / "project.md").write_text("# Project\ncontent", encoding="utf-8")
+
+            exit_code = main(
+                [
+                    "请总结 project.md",
+                    "--workspace",
+                    str(workspace),
+                    "--runs-dir",
+                    str(runs),
+                    "--no-viewer",
+                    "--no-browser",
+                    "--step-delay",
+                    "0",
+                ]
+            )
+            record = load_single_run_record(runs)
+
+        self.assertEqual(exit_code, 0)
+
+        context_built_events = [
+            e for e in record["events"] if e["phase"] == "context_built"
+        ]
+        self.assertGreater(len(context_built_events), 0)
+        first_context = context_built_events[0]
+        ws_config = first_context["output"].get("workspace_config")
+        self.assertIsNotNone(ws_config)
+        self.assertEqual(ws_config["status"], "loaded")
+        self.assertIn("always read project.md", ws_config["content"])
+
+    def test_workspace_config_not_found_when_minagent_md_missing(self) -> None:
+        from min_agent.cli import main
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            workspace = root / "workspace"
+            runs = root / "runs"
+            workspace.mkdir()
+            (workspace / "notes.md").write_text("# Notes\nsample", encoding="utf-8")
+
+            exit_code = main(
+                [
+                    "请总结 notes.md",
+                    "--workspace",
+                    str(workspace),
+                    "--runs-dir",
+                    str(runs),
+                    "--no-viewer",
+                    "--no-browser",
+                    "--step-delay",
+                    "0",
+                ]
+            )
+            record = load_single_run_record(runs)
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(record["status"], "completed")
+
+        context_built_events = [
+            e for e in record["events"] if e["phase"] == "context_built"
+        ]
+        self.assertGreater(len(context_built_events), 0)
+        ws_config = context_built_events[0]["output"].get("workspace_config")
+        self.assertIsNotNone(ws_config)
+        self.assertEqual(ws_config["status"], "not_found")
+
+    def test_run_memory_loads_same_workspace_history(self) -> None:
+        from min_agent.cli import main
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            workspace = root / "workspace"
+            runs = root / "runs"
+            workspace.mkdir()
+            runs.mkdir()
+            (workspace / "project.md").write_text("# Project\ncontent", encoding="utf-8")
+
+            import json as _json
+            pre_record = {
+                "run_id": "prev-run",
+                "workspace": str(workspace.resolve()),
+                "started_at": "2026-06-30T10:00:00+08:00",
+                "user_goal": "previous goal",
+                "status": "completed",
+                "events": [
+                    {"phase": "tool_started", "input": {"tool_name": "read_file"}},
+                    {"phase": "tool_finished", "output": {"success": True}},
+                    {"phase": "final_answer", "output": {"message": "previous answer"}},
+                ],
+            }
+            (runs / "prev-run.json").write_text(
+                _json.dumps(pre_record, ensure_ascii=False), encoding="utf-8"
+            )
+
+            exit_code = main(
+                [
+                    "请总结 project.md",
+                    "--workspace",
+                    str(workspace),
+                    "--runs-dir",
+                    str(runs),
+                    "--no-viewer",
+                    "--no-browser",
+                    "--step-delay",
+                    "0",
+                ]
+            )
+            records = list(runs.glob("*.json"))
+            # Filter out the pre-populated record
+            new_records = [
+                r for r in records if r.name != "prev-run.json"
+            ]
+            self.assertEqual(len(new_records), 1)
+            record = json.loads(new_records[0].read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+
+        context_built_events = [
+            e for e in record["events"] if e["phase"] == "context_built"
+        ]
+        self.assertGreater(len(context_built_events), 0)
+        run_memory = context_built_events[0]["output"].get("run_memory")
+        self.assertIsNotNone(run_memory)
+        self.assertEqual(run_memory["status"], "loaded")
+        self.assertGreaterEqual(run_memory["summary_count"], 1)
+
+    def test_write_file_permission_still_required(self) -> None:
+        from min_agent.cli import main
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            workspace = root / "workspace"
+            runs = root / "runs"
+            workspace.mkdir()
+            (workspace / "notes.md").write_text("# Notes\ncontent", encoding="utf-8")
+
+            with patch("builtins.input", return_value="y"):
+                exit_code = main(
+                    [
+                        "读取 notes.md 并生成 output.md",
+                        "--workspace",
+                        str(workspace),
+                        "--runs-dir",
+                        str(runs),
+                        "--no-viewer",
+                        "--no-browser",
+                        "--step-delay",
+                        "0",
+                    ]
+                )
+            record = load_single_run_record(runs)
+
+        self.assertEqual(exit_code, 0)
+
+        event_phases = phases(record)
+        self.assertIn("permission_requested", event_phases)
+        self.assertIn("permission_resolved", event_phases)
+        self.assertIn("write_file", tool_started_names(record))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -248,7 +248,18 @@ runs/YYYYMMDD-HHMMSS-<run-id>.json
 - 这一版不会做什么
 - 怎么判断这一版完成
 
-不要把版本记录写成代码提交清单。技术实现细节只保留必要摘要，详细开发计划放在 `docs/superpowers/plans/`。
+不要把版本记录写成代码提交清单。技术实现细节只保留必要摘要。
+
+版本产品设计、静态原型和详细开发计划按版本目录聚合，放在 `docs/superpowers/v0.x/` 下，例如：
+
+```text
+docs/superpowers/v0.6/
+  product-design.md
+  trace-viewer-prototype.html
+  implementation-plan.md
+```
+
+历史版本中已经存在于 `docs/superpowers/plans/` 的计划文档可以保留原位，不需要为整理目录而回迁。
 
 ## 版本管理约定
 

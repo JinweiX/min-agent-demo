@@ -35,6 +35,7 @@ class AgentLoop:
         self.step_delay_seconds = step_delay_seconds
         self.permission_callback = permission_callback or (lambda _action: False)
         self.observations: list[Observation] = []
+        self._selected_project_content: list[str] = []
 
     def run(self, user_goal: str) -> AgentRunResult:
         self.recorder.emit(
@@ -52,6 +53,9 @@ class AgentLoop:
                 workspace=self.workspace,
                 available_tools=self.tools.list_specs(),
                 observations=self.observations,
+                selected_project_content=self._selected_project_content,
+                run_id=self.recorder.run_id,
+                started_at=self.recorder.started_at,
             )
             self.recorder.emit(
                 phase="context_built",
@@ -168,6 +172,12 @@ class AgentLoop:
                 reason="工具执行完成" if result.success else "工具执行失败",
                 output=result.to_dict(),
             )
+
+            # V0.6: 只追踪成功读取的文件路径，正文以 Observation 为唯一来源
+            if action.tool_name == "read_file" and result.success:
+                path = action.args.get("path")
+                if isinstance(path, str) and path not in self._selected_project_content:
+                    self._selected_project_content.append(path)
 
             observation = Observation(tool_name=action.tool_name, args=action.args, result=result)
             self.observations.append(observation)

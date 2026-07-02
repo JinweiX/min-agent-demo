@@ -9,6 +9,7 @@ from typing import Sequence
 
 from min_agent.agent_loop import AgentLoop
 from min_agent.context_builder import ContextBuilder
+from min_agent.context_loader import ContextLoader
 from min_agent.decision_model import DecisionModel
 from min_agent.deepseek_client import DeepSeekClient
 from min_agent.deepseek_llm import DeepSeekLLM
@@ -167,8 +168,13 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         registry = build_tool_registry(workspace)
 
+        context_loader = ContextLoader(
+            workspace=str(workspace),
+            runs_dir=args.runs_dir,
+            decision_model=args.decision_model,
+        )
         loop = AgentLoop(
-            context_builder=ContextBuilder(),
+            context_builder=ContextBuilder(context_loader=context_loader),
             llm=llm,
             tools=registry,
             recorder=recorder,

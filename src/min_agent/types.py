@@ -92,20 +92,109 @@ class AgentAction:
         return asdict(self)
 
 
+# ===== V0.6 新增类型 =====
+
+
+@dataclass(frozen=True)
+class RunMetadata:
+    """本次运行的基础信息。"""
+    run_id: str
+    started_at: str
+    workspace: str
+    decision_model: str
+    available_tool_count: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class WorkspaceConfig:
+    """workspace 根目录 minagent.md 的加载结果。"""
+    status: str            # "loaded" | "not_found" | "error"
+    path: str              # 固定为 "minagent.md"
+    content: str = ""      # 实际注入模型的内容，最多 8000 字符
+    preview: str = ""      # 展示用前 200 字符
+    truncated: bool = False
+    error: str = ""        # 安全错误码，不记录 workspace 外真实路径
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class RunMemorySummary:
+    """单条历史运行的摘要。"""
+    run_id: str
+    user_goal: str
+    status: str
+    final_answer_preview: str
+    key_tool_chain: list[str]
+    created_file_path: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class RunMemory:
+    """最近运行摘要的集合。"""
+    status: str                  # "loaded" | "empty" | "error"
+    summary_count: int
+    summaries: list[RunMemorySummary] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "status": self.status,
+            "summary_count": self.summary_count,
+            "summaries": [s.to_dict() for s in self.summaries],
+        }
+
+
+@dataclass(frozen=True)
+class ToolCatalogEntry:
+    """工具目录单项。"""
+    name: str
+    description: str
+    requires_permission: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
 @dataclass(frozen=True)
 class AgentContext:
+    # === 既有字段（保持不变）===
     user_goal: str
     workspace: str
     available_tools: list[ToolSpec]
     observations: list[Observation]
 
+    # === V0.6 新增字段 ===
+    run_metadata: RunMetadata | None = None
+    workspace_config: WorkspaceConfig | None = None
+    run_memory: RunMemory | None = None
+    tool_catalog: list[ToolCatalogEntry] = field(default_factory=list)
+    selected_project_content: list[str] = field(default_factory=list)
+
     def to_dict(self) -> dict[str, Any]:
-        return {
+        result: dict[str, Any] = {
             "user_goal": self.user_goal,
             "workspace": self.workspace,
             "available_tools": [tool.to_dict() for tool in self.available_tools],
             "observations": [observation.to_dict() for observation in self.observations],
         }
+        if self.run_metadata is not None:
+            result["run_metadata"] = self.run_metadata.to_dict()
+        if self.workspace_config is not None:
+            result["workspace_config"] = self.workspace_config.to_dict()
+        if self.run_memory is not None:
+            result["run_memory"] = self.run_memory.to_dict()
+        if self.tool_catalog:
+            result["tool_catalog"] = [entry.to_dict() for entry in self.tool_catalog]
+        if self.selected_project_content:
+            result["selected_project_content"] = list(self.selected_project_content)
+        return result
 
 
 @dataclass(frozen=True)

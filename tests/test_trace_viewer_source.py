@@ -138,7 +138,7 @@ class TraceViewerSourceTest(unittest.TestCase):
     def test_task_entry_nav_uses_entry_marker_not_raw_event_step(self) -> None:
         source = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
 
-        self.assertIn('roundIndex.textContent = "起"', source)
+        self.assertIn('roundIndex.textContent = "0"', source)
 
         entry_start = source.index("function renderTaskEntryItem")
         entry_end = source.index("function renderTaskCompletionItem", entry_start)
@@ -255,6 +255,236 @@ class TraceViewerSourceTest(unittest.TestCase):
         for token in forbidden:
             self.assertNotIn(token, html.lower())
             self.assertNotIn(token, source)
+
+
+class V06TraceViewerSourceTest(unittest.TestCase):
+    def test_summary_grid_replaces_observations_with_context_builds(self) -> None:
+        js = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
+        css = (ROOT / "web" / "trace_viewer.css").read_text(encoding="utf-8")
+
+        # buildRunSummary should have contextBuilds, not observations:
+        build_start = js.index("function buildRunSummary")
+        render_summary_start = js.index("function renderRunSummary", build_start)
+        build_body = js[build_start:render_summary_start]
+        self.assertIn("contextBuilds", build_body)
+        self.assertIn('phase === "context_built"', build_body)
+        self.assertNotIn("observations:", build_body)
+
+        # renderRunSummary should have "上下文构建", not "观察结果"
+        render_end = js.index("function buildRounds", render_summary_start)
+        render_body = js[render_summary_start:render_end]
+        self.assertIn('"上下文构建"', render_body)
+        self.assertNotIn('"观察结果"', render_body)
+        # exactly 5 items
+        self.assertIn('["Agentic Loop 轮次"', render_body)
+        self.assertIn('["模型决策"', render_body)
+        self.assertIn('["工具调用"', render_body)
+        self.assertIn('["上下文构建"', render_body)
+        self.assertIn('["权限确认"', render_body)
+
+        # CSS .run-summary-grid should still be 5 columns
+        self.assertIn("grid-template-columns: repeat(5, minmax(0, 1fr))", css)
+
+    def test_render_context_built_has_seven_source_cards(self) -> None:
+        js = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
+
+        # renderContextBuiltStep must exist
+        self.assertIn("function renderContextBuiltStep", js)
+
+        # Must mention 7 类上下文
+        self.assertIn("本轮模型将使用 7 类上下文", js)
+
+        # Must have all 7 data-source values
+        expected_sources = [
+            "goal",
+            "workspace-config",
+            "run-memory",
+            "run-metadata",
+            "tool-catalog",
+            "observations",
+            "project-content",
+        ]
+        for source in expected_sources:
+            self.assertIn(f'source: "{source}"', js)
+
+        # Must NOT use .step-io-grid for context_built
+        # The context_built branch in renderEventStep should call renderContextBuiltStep
+        render_step_start = js.index("function renderEventStep")
+        render_step_end = js.index("function renderModelDecisionStep", render_step_start)
+        render_step_body = js[render_step_start:render_step_end]
+        self.assertIn("renderContextBuiltStep(step, event, state.events)", render_step_body)
+
+    def test_context_source_cards_have_independent_scroll(self) -> None:
+        css = (ROOT / "web" / "trace_viewer.css").read_text(encoding="utf-8")
+
+        self.assertIn(".context-source-body", css)
+        self.assertIn("overflow-y: auto", css)
+        self.assertIn("overscroll-behavior: contain", css)
+
+        # Desktop: 2 columns
+        self.assertIn("grid-template-columns: repeat(2, minmax(0, 1fr))", css)
+
+        # Narrow: single column
+        # Find the media query section and check context-source-grid becomes 1fr
+        media_start = css.index("@media (max-width: 800px)")
+        media_body = css[media_start:]
+        self.assertIn(".context-source-grid", media_body)
+        self.assertIn("grid-template-columns: 1fr", media_body)
+
+        # goal should span 2 cols on desktop, auto on narrow
+        self.assertIn('.context-source-card[data-source="goal"]', css)
+        self.assertIn("grid-column: 1 / -1", css)
+        self.assertIn("grid-column: auto", media_body)
+
+    def test_context_source_cards_render_status_and_raw_details(self) -> None:
+        js = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
+
+        self.assertIn("context-source-status", js)
+        self.assertIn("priority", js)
+        self.assertIn("loaded", js)
+        self.assertIn("permission", js)
+
+        # raw JSON uses <details> without open
+        self.assertIn('document.createElement("details")', js)
+        self.assertIn('"raw-context"', js)
+        self.assertIn("原始 Context JSON", js)
+
+        # uses textContent, not innerHTML
+        self.assertNotIn("innerHTML", js)
+
+    def test_task_entry_uses_zero_index_once(self) -> None:
+        js = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
+
+        # renderTaskEntryItem should use "0"
+        entry_start = js.index("function renderTaskEntryItem")
+        entry_end = js.index("function renderTaskCompletionItem", entry_start)
+        entry_body = js[entry_start:entry_end]
+        self.assertIn('roundIndex.textContent = "0"', entry_body)
+
+        # buildRounds should still skip run_started
+        rounds_start = js.index("function buildRounds")
+        rounds_end = js.index("function enrichRound", rounds_start)
+        rounds_body = js[rounds_start:rounds_end]
+        self.assertIn('"run_started"', rounds_body)
+        self.assertIn("continue", rounds_body)
+
+        # Should not have id: "round-0"
+        self.assertNotIn('"round-0"', js)
+
+    def test_context_change_is_computed(self) -> None:
+        js = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
+
+        self.assertIn("function buildContextChange", js)
+
+        # Should compare adjacent context_built snapshots
+        change_start = js.index("function buildContextChange")
+        change_end = js.index("function renderContextBuiltStep", change_start)
+        change_body = js[change_start:change_end]
+        self.assertIn("item.step < event.step", change_body)
+        self.assertIn("previous.output?.observations", change_body)
+        self.assertIn("previous.output?.selected_project_content", change_body)
+        self.assertIn("首轮，无前序上下文", change_body)
+
+    def test_flow_uses_context_build_label(self) -> None:
+        js = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
+
+        # buildFlowItems context_built branch uses "Context Build"
+        flow_start = js.index("function buildFlowItems")
+        flow_end = js.index("function createContextSourceCard", flow_start)
+        flow_body = js[flow_start:flow_end]
+        self.assertIn('add("Context Build")', flow_body)
+        self.assertNotIn('add("Context")', flow_body)
+
+        # moduleForPhase still has "context_built": "Context"
+        module_start = js.index("function moduleForPhase")
+        module_end = js.index("function renderOriginalRequest", module_start)
+        module_body = js[module_start:module_end]
+        self.assertIn('"context_built": "Context"', module_body)
+
+    def test_no_static_context_panel(self) -> None:
+        html = (ROOT / "web" / "trace_viewer.html").read_text(encoding="utf-8")
+
+        self.assertNotIn('id="context-sources"', html)
+        self.assertNotIn('id="context-detail"', html)
+
+        # #original-request before #final-answer before #round-list
+        req_pos = html.index('id="original-request"')
+        final_pos = html.index('id="final-answer"')
+        list_pos = html.index('id="round-list"')
+        self.assertLess(req_pos, final_pos)
+        self.assertLess(final_pos, list_pos)
+
+    def test_key_dom_ids_present(self) -> None:
+        html = (ROOT / "web" / "trace_viewer.html").read_text(encoding="utf-8")
+        css = (ROOT / "web" / "trace_viewer.css").read_text(encoding="utf-8")
+        js = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
+
+        # HTML key ids
+        for id_name in ["run-summary", "original-request", "final-answer", "round-list", "round-detail"]:
+            self.assertIn(f'id="{id_name}"', html)
+
+        # CSS existing classes
+        for class_name in [".round-list", ".flow-overview", ".flow-node", ".event-step"]:
+            self.assertIn(class_name, css)
+
+        # CSS new V0.6 classes
+        for class_name in [
+            ".context-build-intro",
+            ".context-source-grid",
+            ".context-source-card",
+            ".context-source-body",
+            ".context-change",
+            ".raw-context",
+        ]:
+            self.assertIn(class_name, css)
+
+        # JS new V0.6 functions
+        for func_name in [
+            "createContextSourceCard",
+            "createContextSourceGroup",
+            "buildContextChange",
+            "renderContextBuiltStep",
+        ]:
+            self.assertIn(func_name, js)
+
+    def test_build_context_change_handles_object_entries(self) -> None:
+        """兼容开发期旧记录中的 {path, preview} 条目。"""
+        js = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
+
+        path_start = js.index("function selectedProjectPath")
+        path_end = js.index("function buildSelectedProjectContentText", path_start)
+        path_body = js[path_start:path_end]
+        change_start = js.index("function buildContextChange")
+        change_end = js.index("function renderContextBuiltStep", change_start)
+        change_body = js[change_start:change_end]
+
+        self.assertIn("entry.path", path_body)
+        self.assertIn('typeof entry === "object"', path_body)
+        self.assertIn("previousEntries.map(selectedProjectPath)", change_body)
+        self.assertIn("currentFiles\n    .map(selectedProjectPath)", change_body)
+
+        # 不应再用字符串比较
+        self.assertNotIn("!previousFiles.has(path)", change_body.replace(
+            "!previousPaths.has(path)", "REMOVED"))
+
+    def test_project_content_uses_full_read_file_observation_content(self) -> None:
+        """Selected Project Content 必须展示 read_file 的完整正文，而不是 200 字预览。"""
+        js = (ROOT / "web" / "trace_viewer.js").read_text(encoding="utf-8")
+
+        self.assertIn("function buildSelectedProjectContentText", js)
+        helper_start = js.index("function buildSelectedProjectContentText")
+        helper_end = js.index("function buildContextChange", helper_start)
+        helper_body = js[helper_start:helper_end]
+
+        self.assertIn('observation.tool_name === "read_file"', helper_body)
+        self.assertIn("observation.result?.success", helper_body)
+        self.assertIn("observation.result?.content", helper_body)
+        self.assertNotIn("entry.preview", helper_body)
+
+        render_start = js.index("function renderContextBuiltStep")
+        render_end = js.index("function renderEventStep", render_start)
+        render_body = js[render_start:render_end]
+        self.assertIn("buildSelectedProjectContentText(output)", render_body)
 
 
 if __name__ == "__main__":

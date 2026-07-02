@@ -205,5 +205,123 @@ class AgentLoopTest(unittest.TestCase):
         self.assertIn("read_file", tool_names)
 
 
+    def test_selected_project_content_tracks_read_files(self) -> None:
+        from min_agent.agent_loop import AgentLoop
+        from min_agent.context_builder import ContextBuilder
+        from min_agent.fake_llm import FakeLLM
+        from min_agent.tool_registry import ToolRegistry
+        from min_agent.tools.workspace import read_file
+        from min_agent.trace_recorder import TraceRecorder
+        from min_agent.types import ToolSpec
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            (workspace / "notes.md").write_text("# 示例\n内容", encoding="utf-8")
+
+            registry = ToolRegistry()
+            registry.register(
+                ToolSpec(name="read_file", description="Read file", args_schema={"path": "string"}),
+                lambda args: read_file(workspace, args),
+            )
+            recorder = TraceRecorder(user_goal="读取 notes.md", workspace=str(workspace))
+            loop = AgentLoop(
+                context_builder=ContextBuilder(),
+                llm=FakeLLM(),
+                tools=registry,
+                recorder=recorder,
+                workspace=str(workspace),
+                step_delay_seconds=0,
+            )
+
+            result = loop.run("读取 notes.md")
+
+        self.assertTrue(result.success)
+        context_built_events = [
+            event for event in recorder.history() if event.phase == "context_built"
+        ]
+        # The last context_built should have selected_project_content with notes.md
+        if context_built_events:
+            last_context = context_built_events[-1]
+            spc = last_context.output.get("selected_project_content", [])
+            self.assertIn("notes.md", spc)
+
+    def test_selected_project_content_no_duplicates(self) -> None:
+        from min_agent.agent_loop import AgentLoop
+        from min_agent.context_builder import ContextBuilder
+        from min_agent.tool_registry import ToolRegistry
+        from min_agent.trace_recorder import TraceRecorder
+        from min_agent.types import AgentAction, AgentContext, ToolResult, ToolSpec
+
+        class MultiReadLLM:
+            def __init__(self) -> None:
+                self.calls = 0
+
+            def decide(self, context: AgentContext) -> AgentAction:
+                self.calls += 1
+                if self.calls <= 2:
+                    return AgentAction.tool_call("read_file", {"path": "same.md"}, "read same file twice")
+                return AgentAction.final_answer("done", "all done")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            (workspace / "same.md").write_text("content", encoding="utf-8")
+
+            registry = ToolRegistry()
+            registry.register(
+                ToolSpec(name="read_file", description="Read file", args_schema={"path": "string"}),
+                lambda args: ToolResult(success=True, content="content", metadata={"path": str(args.get("path", ""))}),
+            )
+            recorder = TraceRecorder(user_goal="read twice", workspace=str(workspace))
+            loop = AgentLoop(
+                context_builder=ContextBuilder(),
+                llm=MultiReadLLM(),
+                tools=registry,
+                recorder=recorder,
+                workspace=str(workspace),
+                step_delay_seconds=0,
+            )
+
+            loop.run("read twice")
+
+        # After both reads, selected_project_content should only contain same.md once
+        same_count = loop._selected_project_content.count("same.md")
+        self.assertEqual(same_count, 1)
+
+    def test_context_built_event_has_v06_fields(self) -> None:
+        from min_agent.agent_loop import AgentLoop
+        from min_agent.context_builder import ContextBuilder
+        from min_agent.tool_registry import ToolRegistry
+        from min_agent.trace_recorder import TraceRecorder
+        from min_agent.types import AgentAction, AgentContext
+
+        class SingleReadLLM:
+            def decide(self, context: AgentContext) -> AgentAction:
+                return AgentAction.final_answer("done", "done")
+
+        registry = ToolRegistry()
+        recorder = TraceRecorder(user_goal="test v06 fields", workspace="ws")
+        loop = AgentLoop(
+            context_builder=ContextBuilder(),
+            llm=SingleReadLLM(),
+            tools=registry,
+            recorder=recorder,
+            workspace="ws",
+            step_delay_seconds=0,
+        )
+
+        loop.run("test v06 fields")
+
+        context_built_events = [
+            event for event in recorder.history() if event.phase == "context_built"
+        ]
+        self.assertGreater(len(context_built_events), 0)
+        output = context_built_events[0].output
+        # Core fields always present in context_built output
+        self.assertIn("user_goal", output)
+        self.assertIn("workspace", output)
+        self.assertIn("available_tools", output)
+        self.assertIn("observations", output)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -476,6 +476,224 @@ pre {
   padding: 12px;
 }
 
+/* ===== V0.6 来源卡片样式 ===== */
+
+.context-build-intro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  background: #f8fbff;
+  padding: 14px;
+}
+
+.context-build-intro h4 {
+  margin: 0 0 4px;
+  color: #1e3a5f;
+  font-size: 14px;
+  text-transform: none;
+}
+
+.context-build-intro p {
+  margin: 0;
+  color: #526071;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.context-source-count {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #dbeafe;
+  padding: 5px 9px;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.context-source-group {
+  display: grid;
+  gap: 10px;
+}
+
+.context-source-group + .context-source-group {
+  margin-top: 4px;
+}
+
+.context-source-group-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.context-source-group-heading h4 {
+  margin: 0;
+  color: #344054;
+  font-size: 13px;
+  text-transform: none;
+}
+
+.context-source-group-heading span {
+  color: #667085;
+  font-size: 12px;
+}
+
+.context-source-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.context-source-card {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 224px;
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-top-width: 3px;
+  border-radius: 7px;
+  background: #ffffff;
+}
+
+.context-source-card[data-source="goal"] {
+  grid-column: 1 / -1;
+  min-height: 150px;
+  border-top-color: #3b82f6;
+}
+
+.context-source-card[data-source="workspace-config"] {
+  border-top-color: #22c55e;
+}
+
+.context-source-card[data-source="run-memory"] {
+  border-top-color: #8b5cf6;
+}
+
+.context-source-card[data-source="run-metadata"] {
+  border-top-color: #64748b;
+}
+
+.context-source-card[data-source="tool-catalog"] {
+  border-top-color: #f97316;
+}
+
+.context-source-card[data-source="observations"] {
+  border-top-color: #06b6d4;
+}
+
+.context-source-card[data-source="project-content"] {
+  border-top-color: #eab308;
+}
+
+.context-source-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 12px 6px;
+}
+
+.context-source-card-header h5 {
+  margin: 0;
+  color: #101828;
+  font-size: 14px;
+}
+
+.context-source-status {
+  flex: 0 0 auto;
+  border: 1px solid #d0d5dd;
+  border-radius: 999px;
+  background: #f9fafb;
+  padding: 3px 7px;
+  color: #475467;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.context-source-status.priority {
+  border-color: #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.context-source-status.loaded {
+  border-color: #86efac;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.context-source-status.permission {
+  border-color: #fdba74;
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.context-source-summary {
+  margin: 0;
+  padding: 0 12px 10px;
+  color: #667085;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.context-source-body {
+  height: 142px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-top: 1px solid #eaecf0;
+  background: #f9fafb;
+  padding: 11px 12px;
+  color: #344054;
+  font-size: 12px;
+  line-height: 1.55;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.context-source-card[data-source="goal"] .context-source-body {
+  height: 54px;
+}
+
+.context-source-body pre {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  max-height: none;
+}
+
+.context-change {
+  border-left: 3px solid #06b6d4;
+  border-radius: 0 5px 5px 0;
+  background: #ecfeff;
+  padding: 9px 11px;
+  color: #155e75;
+  font-size: 12px;
+}
+
+.raw-context {
+  border: 1px solid #e4e7ec;
+  border-radius: 6px;
+  background: #f9fafb;
+}
+
+.raw-context summary {
+  cursor: pointer;
+  padding: 11px 12px;
+  color: #475467;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.raw-context pre {
+  margin: 0 12px 12px;
+}
+
 @media (max-width: 800px) {
   .shell {
     padding: 16px;
@@ -523,5 +741,19 @@ pre {
 
   .flow-node:not(:last-child)::after {
     display: none;
+  }
+
+  .context-source-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .context-source-card[data-source="goal"] {
+    grid-column: auto;
+  }
+
+  .context-build-intro,
+  .context-source-group-heading {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

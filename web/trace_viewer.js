@@ -55,8 +55,8 @@ function buildRunSummary(events) {
     rounds: rounds.filter((round) => round.events.some((event) => event.phase === "llm_decision")).length,
     modelCalls: events.filter((event) => event.phase === "llm_decision").length,
     toolCalls: events.filter((event) => event.phase === "tool_started").length,
+    contextBuilds: events.filter((event) => event.phase === "context_built").length,
     permissions: events.filter((event) => event.phase === "permission_requested").length,
-    observations: events.filter((event) => event.phase === "observation_added").length,
   };
 }
 
@@ -66,11 +66,11 @@ function renderRunSummary() {
   container.replaceChildren();
 
   const items = [
-    ["执行轮次", summary.rounds],
+    ["Agentic Loop 轮次", summary.rounds],
     ["模型决策", summary.modelCalls],
     ["工具调用", summary.toolCalls],
-    ["权限请求", summary.permissions],
-    ["观察结果", summary.observations],
+    ["上下文构建", summary.contextBuilds],
+    ["权限确认", summary.permissions],
   ];
 
   for (const [label, value] of items) {
@@ -285,7 +285,7 @@ function renderTaskEntryItem(roundList, event) {
 
   const roundIndex = document.createElement("span");
   roundIndex.className = "round-index";
-  roundIndex.textContent = "起";
+  roundIndex.textContent = "0";
 
   const content = document.createElement("span");
   content.className = "round-content";
@@ -519,7 +519,7 @@ function buildFlowItems(events) {
 
   for (const event of events) {
     if (event.phase === "context_built") {
-      add("Context");
+      add("Context Build");
     } else if (event.phase === "llm_decision") {
       add("Model");
     } else if (event.phase === "tool_started") {
@@ -542,6 +542,234 @@ function buildFlowItems(events) {
   }
 
   return items.length > 0 ? items : ["Trace Event"];
+}
+
+function createContextSourceCard({source, title, status, statusClass = "", summary, detail}) {
+  const card = document.createElement("article");
+  card.className = "context-source-card";
+  card.dataset.source = source;
+
+  const header = document.createElement("div");
+  header.className = "context-source-card-header";
+  const heading = document.createElement("h5");
+  heading.textContent = title;
+  const statusNode = document.createElement("span");
+  statusNode.className = `context-source-status ${statusClass}`.trim();
+  statusNode.textContent = status;
+  header.append(heading, statusNode);
+
+  const summaryNode = document.createElement("p");
+  summaryNode.className = "context-source-summary";
+  summaryNode.textContent = summary;
+
+  const body = document.createElement("div");
+  body.className = "context-source-body";
+  body.tabIndex = 0;
+  const detailNode = document.createElement("pre");
+  detailNode.textContent = typeof detail === "string"
+    ? detail
+    : JSON.stringify(detail, null, 2);
+  body.append(detailNode);
+
+  card.append(header, summaryNode, body);
+  return card;
+}
+
+function createContextSourceGroup(title, description) {
+  const section = document.createElement("section");
+  section.className = "context-source-group";
+  const header = document.createElement("div");
+  header.className = "context-source-group-heading";
+  const heading = document.createElement("h4");
+  heading.textContent = title;
+  const descriptionNode = document.createElement("span");
+  descriptionNode.textContent = description;
+  header.append(heading, descriptionNode);
+  const grid = document.createElement("div");
+  grid.className = "context-source-grid";
+  section.append(header, grid);
+  return {section, grid};
+}
+
+function selectedProjectPath(entry) {
+  if (typeof entry === "object" && entry !== null) {
+    return typeof entry.path === "string" ? entry.path : "";
+  }
+  return typeof entry === "string" ? entry : "";
+}
+
+function buildSelectedProjectContentText(output) {
+  const entries = output.selected_project_content || [];
+  if (entries.length === 0) {
+    return "暂无已读取的项目文件";
+  }
+
+  const observations = output.observations || [];
+  return entries.map((entry) => {
+    const path = selectedProjectPath(entry);
+    let content = "";
+    for (let index = observations.length - 1; index >= 0; index -= 1) {
+      const observation = observations[index];
+      if (
+        observation.tool_name === "read_file"
+        && observation.args?.path === path
+        && observation.result?.success === true
+        && typeof observation.result?.content === "string"
+      ) {
+        content = observation.result?.content;
+        break;
+      }
+    }
+    const displayedContent = content || "未找到对应的成功 read_file observation";
+    return `${path}\n${"-".repeat(path.length)}\n${displayedContent}`;
+  }).join("\n\n");
+}
+
+function buildContextChange(event, allEvents) {
+  const snapshots = allEvents
+    .filter((item) => item.phase === "context_built" && item.step < event.step)
+    .sort((a, b) => a.step - b.step);
+  const previous = snapshots[snapshots.length - 1];
+  if (!previous) {
+    return ["首轮，无前序上下文"];
+  }
+
+  const currentObservations = event.output?.observations || [];
+  const previousObservations = previous.output?.observations || [];
+
+  // 正常记录使用路径字符串；同时兼容开发期生成的 {path, preview} 旧条目
+  const currentFiles = (event.output?.selected_project_content || []);
+  const previousEntries = (previous.output?.selected_project_content || []);
+  const previousPaths = new Set(
+    previousEntries.map(selectedProjectPath)
+  );
+  const addedFiles = currentFiles
+    .map(selectedProjectPath)
+    .filter((path) => path && !previousPaths.has(path));
+
+  const changes = [];
+  if (currentObservations.length > previousObservations.length) {
+    changes.push(`新增 ${currentObservations.length - previousObservations.length} 条 observation`);
+  }
+  if (addedFiles.length > 0) {
+    changes.push(`新增已读取文件：${addedFiles.join(", ")}`);
+  }
+  return changes.length > 0 ? changes : ["与上一轮相比无新增动态上下文"];
+}
+
+function renderContextBuiltStep(container, event, allEvents) {
+  const output = event.output || {};
+
+  const intro = document.createElement("section");
+  intro.className = "context-build-intro";
+  const introCopy = document.createElement("div");
+  const introTitle = document.createElement("h4");
+  introTitle.textContent = "本轮模型将使用 7 类上下文";
+  const introDescription = document.createElement("p");
+  introDescription.textContent = "每个来源独立展示；卡片内容可单独上下滚动，看到的就是本轮判断前实际加入的上下文。";
+  introCopy.append(introTitle, introDescription);
+  const sourceCount = document.createElement("span");
+  sourceCount.className = "context-source-count";
+  sourceCount.textContent = "5 类基础 · 2 类动态";
+  intro.append(introCopy, sourceCount);
+
+  const base = createContextSourceGroup(
+    "运行级基础上下文 · 本轮沿用",
+    "运行开始时加载一次，每轮继续提供给模型",
+  );
+  const wsConfig = output.workspace_config || {};
+  let wsStatus = "未加载";
+  let wsStatusClass = "";
+  if (wsConfig.status === "loaded") {
+    wsStatus = wsConfig.truncated ? "已截断" : "已加载";
+    wsStatusClass = "loaded";
+  } else if (wsConfig.status === "error") {
+    wsStatus = "读取错误";
+  }
+
+  const runMemory = output.run_memory || {};
+  const memStatus = (runMemory.status === "loaded" && runMemory.summary_count > 0)
+    ? `${runMemory.summary_count} 条历史`
+    : "暂无可用历史摘要";
+
+  base.grid.append(
+    createContextSourceCard({
+      source: "goal",
+      title: "当前用户目标",
+      status: "最高优先级",
+      statusClass: "priority",
+      summary: "用户本次明确输入，其他上下文只能辅助理解，不能覆盖这个目标。",
+      detail: output.user_goal || "",
+    }),
+    createContextSourceCard({
+      source: "workspace-config",
+      title: "Workspace Config · minagent.md",
+      status: wsStatus,
+      statusClass: wsStatusClass,
+      summary: "来自 workspace 根目录的规则和偏好，不改变本地权限边界。",
+      detail: wsConfig.status ? wsConfig : null,
+    }),
+    createContextSourceCard({
+      source: "run-memory",
+      title: "最近运行摘要",
+      status: memStatus,
+      summary: "只读取当前 workspace 最近的有效记录，作为辅助背景。",
+      detail: Object.keys(runMemory).length > 0 ? runMemory : {status: "empty", summaries: []},
+    }),
+    createContextSourceCard({
+      source: "run-metadata",
+      title: "运行元信息",
+      status: "本轮沿用",
+      summary: "帮助解释这次运行环境，不会直接触发任何工具。",
+      detail: output.run_metadata || null,
+    }),
+    createContextSourceCard({
+      source: "tool-catalog",
+      title: "工具目录",
+      status: "含权限边界",
+      statusClass: "permission",
+      summary: "模型只能提出这些本地动作，工具执行仍由 ToolRegistry 控制。",
+      detail: output.tool_catalog || [],
+    }),
+  );
+
+  const dynamic = createContextSourceGroup(
+    "逐轮动态上下文 · 截至本轮",
+    "工具结果只影响下一轮及后续判断",
+  );
+  const change = document.createElement("div");
+  change.className = "context-change";
+  change.textContent = buildContextChange(event, allEvents).join("；");
+  dynamic.section.insertBefore(change, dynamic.grid);
+  const spcEntries = output.selected_project_content || [];
+  const spcText = buildSelectedProjectContentText(output);
+
+  dynamic.grid.append(
+    createContextSourceCard({
+      source: "observations",
+      title: "Working Observations",
+      status: `${(output.observations || []).length} 条 · 本轮动态`,
+      summary: "Agent 已经获得的真实工具结果，是下一步判断的工作状态。",
+      detail: output.observations || [],
+    }),
+    createContextSourceCard({
+      source: "project-content",
+      title: "Selected Project Content",
+      status: `${spcEntries.length} files`,
+      summary: "通过 read_file 进入上下文的任务材料，与 minagent.md 配置分开。",
+      detail: spcText,
+    }),
+  );
+
+  const raw = document.createElement("details");
+  raw.className = "raw-context";
+  const rawSummary = document.createElement("summary");
+  rawSummary.textContent = "原始 Context JSON · 调试信息（默认折叠）";
+  const rawPre = document.createElement("pre");
+  rawPre.textContent = JSON.stringify(output, null, 2);
+  raw.append(rawSummary, rawPre);
+
+  container.append(intro, base.section, dynamic.section, raw);
 }
 
 function renderEventStep(container, event) {
@@ -569,6 +797,12 @@ function renderEventStep(container, event) {
 
   if (event.reason) {
     appendSection(step, "为什么发生", event.reason);
+  }
+
+  if (event.phase === "context_built") {
+    renderContextBuiltStep(step, event, state.events);
+    container.append(step);
+    return;
   }
 
   if (event.phase === "llm_decision") {
